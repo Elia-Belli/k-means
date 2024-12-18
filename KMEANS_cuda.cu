@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
 
 	//START CLOCK***************************************
 	double start, end;
-	start = omp_get_wtime();
+	start = clock();
 	//**************************************************
 	/*
 	* PARAMETERS
@@ -308,21 +308,21 @@ int main(int argc, char* argv[])
 	printf("\tMaximum centroid precision: %f\n", maxThreshold);
 	
 	//END CLOCK*****************************************
-	end = omp_get_wtime();
-	printf("\nMemory allocation: %f seconds\n", end - start);
+	end = clock();
+	printf("\nMemory allocation: %f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
 	fflush(stdout);
 
 	CHECK_CUDA_CALL( cudaSetDevice(0) );
 	CHECK_CUDA_CALL( cudaDeviceSynchronize() );
 	//**************************************************
 	//START CLOCK***************************************
-	start = omp_get_wtime();
+	start = clock();
 	//**************************************************
 	char *outputMsg = (char *)calloc(10000,sizeof(char));
 	char line[100];
 
 	int j;
-	int class;
+	int classe;
 	float dist, minDist;
 	int it=0;
 	int changes = 0;
@@ -353,7 +353,7 @@ int main(int argc, char* argv[])
 		changes = 0;
 		for(i=0; i<lines; i++)
 		{
-			class=1;
+			classe=1;
 			minDist=FLT_MAX;
 			for(j=0; j<K; j++)
 			{
@@ -362,14 +362,14 @@ int main(int argc, char* argv[])
 				if(dist < minDist)
 				{
 					minDist=dist;
-					class=j+1;
+					classe=j+1;
 				}
 			}
-			if(classMap[i]!=class)
+			if(classMap[i]!=classe)
 			{
 				changes++;
 			}
-			classMap[i]=class;
+			classMap[i]=classe;
 		}
 
 		// 2. Recalculates the centroids: calculates the mean within each cluster
@@ -378,10 +378,10 @@ int main(int argc, char* argv[])
 
 		for(i=0; i<lines; i++) 
 		{
-			class=classMap[i];
-			pointsPerClass[class-1] = pointsPerClass[class-1] +1;
+			classe=classMap[i];
+			pointsPerClass[classe-1] = pointsPerClass[classe-1] +1;
 			for(j=0; j<samples; j++){
-				auxCentroids[(class-1)*samples+j] += data[i*samples+j];
+				auxCentroids[(classe-1)*samples+j] += data[i*samples+j];
 			}
 		}
 
@@ -417,12 +417,12 @@ int main(int argc, char* argv[])
 	CHECK_CUDA_CALL( cudaDeviceSynchronize() );
 
 	//END CLOCK*****************************************
-	end = omp_get_wtime();
-	printf("\nComputation: %f seconds", end - start);
+	end = clock();
+	printf("\nComputation: %f seconds", (double)(end - start) / CLOCKS_PER_SEC);
 	fflush(stdout);
 	//**************************************************
 	//START CLOCK***************************************
-	start = omp_get_wtime();
+	start = clock();
 	//**************************************************
 
 	
@@ -455,8 +455,8 @@ int main(int argc, char* argv[])
 	free(auxCentroids);
 
 	//END CLOCK*****************************************
-	end = omp_get_wtime();
-	printf("\n\nMemory deallocation: %f seconds\n", end - start);
+	end = clock();
+	printf("\n\nMemory deallocation: %f seconds\n",(double)(end - start) / CLOCKS_PER_SEC);
 	fflush(stdout);
 	//***************************************************/
 	return 0;

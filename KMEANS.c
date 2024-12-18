@@ -258,10 +258,10 @@ int main(int argc, char* argv[])
 	}
 
 	// Parameters
-	int K=atoi(argv[2]); 
-	int maxIterations=atoi(argv[3]);
-	int minChanges= (int)(lines*atof(argv[4])/100.0);
-	float maxThreshold=atof(argv[5]);
+	int K = atoi(argv[2]); 
+	int maxIterations = atoi(argv[3]);
+	int minChanges = (int)(lines*atof(argv[4])/100.0);
+	float maxThreshold = atof(argv[5]);
 
 	int *centroidPos = (int*)calloc(K,sizeof(int));
 	float *centroids = (float*)calloc(K*samples,sizeof(float));
@@ -273,7 +273,7 @@ int main(int argc, char* argv[])
 		exit(-4);
 	}
 
-	// Initial centrodis
+	// Initial centroids
 	srand(0);
 	int i;
 	for(i=0; i<K; i++) 
