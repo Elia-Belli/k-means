@@ -277,7 +277,7 @@ int main(int argc, char* argv[])
 		MPI_Abort( MPI_COMM_WORLD, EXIT_FAILURE );
 	}
 
-	// Initial centrodis
+	// Initial centroids
 	srand(0);
 	int i;
 	for(i=0; i<K; i++) 
