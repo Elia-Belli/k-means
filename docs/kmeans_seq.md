@@ -1,16 +1,16 @@
 # SEQUENTIAL K-MEANS Implementation
 
 ## Input
-1. Con `int readInput(char* filename, int *lines, int *samples)` apre il file per contare il numero di punti e il numero di dimensioni, che salva rispettivamente in `lines` e `samples`
+Con `int readInput(char* filename, int *lines, int *samples)` apre il file per contare il numero di punti e il numero di dimensioni, che salva rispettivamente in `lines` e `samples`
 
-2. Con `int readInput2(char* filename, float* data)` legge effettivamente il contenuto del file, salvando i dati linearizzati in `data` (di dimensione `lines * samples * sizeof(float)`) 
+Con `int readInput2(char* filename, float* data)` legge effettivamente il contenuto del file, salvando i dati linearizzati in `data` (di dimensione `lines * samples * sizeof(float)`) 
 
-3. Lettura parametri da `argv` : 
-    int K: numero di centroidi
-    Condizioni di terminazione:
-        1. int maxIterations: al cicli `maxIterations` termina
-        2. int minChanges: se al massimo `minChanges` centroidi cambiano cluster termina 
-        3. maxThreshold: se i centroidi (tutti o almeno uno?) non si spostano almeno di `maxThreshold` termina
+Lettura parametri da `argv` : 
+- int K: numero di centroidi
+Condizioni di terminazione:
+- int maxIterations: al ciclo `maxIterations` termina
+- int minChanges: ci devono essere almeno `minChanges` cambi di classe, altrimenti termina 
+- maxThreshold: almeno un centroide si deve spostare di `maxThreshold`, altrimenti termina
     
 
 ## Allocazione
@@ -21,7 +21,7 @@ Alloca:
 - `int *classMap`: per salvare il cluster di appartenenza (da 1 a K) di ogni punto
 
 >[!bug] Stampa delle iterazioni (buffer overflow)
-> Per `outputMsg` viene allocato uno spazio di memoria fisso di `10.000 * sizeof(char)` , siccome la stampa avviene solo alla fine se la condizione terminante sono i cicli e `maxIterations > 150` potrebbe non esserci abbastanza spazio per memorizzarli tutti, quindi crasha!
+> Per `outputMsg` viene allocato uno spazio di memoria fisso di `10.000 * sizeof(char)` , siccome la stampa avviene solo alla fine se la condizione terminante sono i cicli e `maxIterations > 150` potrebbe non esserci abbastanza spazio per memorizzarli tutti, quindi crasha! (FIX: allocare in base a #iterazioni)
 
 - `int *pointsPerClass`: per salvare il numero di punti appartenenti ad ogni cluster (ad ogni iterazione)
 - `float *auxCentroids`: per salvare le nuove posizioni dei centroidi (ad ogni iterazione)
