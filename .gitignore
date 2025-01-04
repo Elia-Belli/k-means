@@ -1,4 +1,5 @@
 bin/*
-out/*
-.vscode
+!bin/out/
 .idea
+.vscode
+

@@ -41,23 +41,26 @@ help:
 all: $(OBJS)
 
 KMEANS_seq: KMEANS.c
-	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o $@
+	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_omp: KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o $@
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_mpi_elia: KMEANS_mpi_elia.c
-	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o $@
-
-KMEANS_mpi_fede: KMEANS_mpi_fede.c
-	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o $@
+KMEANS_mpi: KMEANS_mpi.c
+	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_cuda: KMEANS_cuda.cu
-	$(CUDACC) $(DEBUG) $< $(LIBS) -o $@
+	$(CUDACC) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 compare: compare.c
-	$(CC) $(FLAGS) -o $@
-	
+	$(CC) $(FLAGS) -o ./bin/$@
+
+KMEANS_mpi_elia: ./mpi/KMEANS_mpi_elia.c
+	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
+
+KMEANS_mpi_fede: ./mpi/KMEANS_mpi_fede.c
+	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
+
 # Remove the target files
 clean:
 	rm -rf $(OBJS)
