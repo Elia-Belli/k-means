@@ -30,6 +30,15 @@
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
+#define MPI_CHECK_RETURN(value){            \
+    if(value != MPI_SUCCESS){               \
+        char error_str[100];                \
+        int len;                            \
+        MPI_Error_string(value, error_str, &len);                               \
+        fprintf(stderr, "MPI Error: %s \n at line %d in file %s\n", error_str, __LINE__, __FILE__);            \
+        MPI_Abort( MPI_COMM_WORLD, EXIT_FAILURE );                              \
+    }       \
+}
 /* 
 Function showFileError: It displays the corresponding error during file reading.
 */
@@ -168,57 +177,15 @@ void initCentroids(const float* data, float* centroids, int* centroidPos, int sa
 Function euclideanDistance: Euclidean distance
 This function could be modified
 */
-float euclideanDistance(const float* point, const float* center, const int samples)
+float_t euclideanDistance(const float* point, const float* center, const int samples)
 {
-    float dist = 0.0;
+    float_t dist = 0.0;
     for (int i = 0; i < samples; i++)
     {
         dist += (point[i] - center[i]) * (point[i] - center[i]);
     }
 
-    dist = sqrt(dist);
-    return dist;
-}
-
-float squaredDistance(const float* point, const float* center, const int samples)
-{
-    float dist = 0.0;
-    for (int i = 0; i < samples; i++)
-    {
-        dist += (point[i] - center[i]) * (point[i] - center[i]);
-    }
-    return dist;
-}
-
-int pointClassMapping(
-    const int start, const int lines, int* classMap, int* pointsPerClass,
-    const float* data, const float* centroids, const int samples, const int K
-)
-{
-    int class, changes = 0;
-    float dist, minDist;
-
-    for (int i = 0; i < lines; i++)
-    {
-        class = 1, minDist = FLT_MAX;
-        for (int j = 0; j < K; j++)
-        {
-            dist = squaredDistance(&data[(start + i) * samples], &centroids[j * samples], samples);
-            if (dist < minDist)
-            {
-                minDist = dist, class = j + 1;
-            }
-        }
-        if (classMap[i] != class)
-        {
-            changes++;
-            classMap[i] = class;
-        }
-
-        pointsPerClass[classMap[i] - 1]++;
-    }
-
-    return changes;
+    return sqrt(dist);
 }
 
 int main(int argc, char* argv[])
@@ -336,7 +303,7 @@ int main(int argc, char* argv[])
     char line[100];
 
     int it = 0, changes = 0;
-    float distCentroids, maxDist;
+    float_t distCentroids, maxDist;
 
     //pointPerClass: number of points classified in each class
     //auxCentroids: mean of the points in each class
@@ -347,12 +314,6 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Memory allocation error.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
-
-    /*
-     *
-     * START HERE: DO NOT CHANGE THE CODE ABOVE THIS POINT
-     *
-     */
 
     int* linesPerProcess;
     int* displacementPerProcess;
@@ -389,6 +350,8 @@ int main(int argc, char* argv[])
 
     MPI_Request reqs[2], req;
     int startLine, lineOffset, startCentroid, centroidOffset;
+    int class;
+    float_t dist, minDist;
     startLine = rank * workPerProcess, lineOffset = workPerProcess;
     startCentroid = rank * centroidsPerProcess, centroidOffset = centroidsPerProcess;
 
@@ -427,15 +390,31 @@ int main(int argc, char* argv[])
         it++;
 
         // 1. Assign each point to a class and count the elements in each class
-        changes = pointClassMapping(
-            startLine, lineOffset,
-            localClassMap, pointsPerClass,
-            data, centroids, samples, K
-        );
+        changes = 0;
+        for (int i = 0; i < lineOffset; i++)
+        {
+            class = 1, minDist = FLT_MAX;
+            for (int j = 0; j < K; j++)
+            {
+                dist = euclideanDistance(&data[(startLine + i) * samples], &centroids[j * samples], samples);
+
+                if (dist < minDist)
+                {
+                    minDist = dist, class = j + 1;
+                }
+            }
+            if (localClassMap[i] != class)
+            {
+                changes++;
+                localClassMap[i] = class;
+            }
+
+            pointsPerClass[localClassMap[i] - 1]++;
+        }
 
         // 2. Compute the coordinates mean of all the point in the same class
-        MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]);
-        MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req);
+        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
+        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
 
         for (i = 0; i < lineOffset; i++)
         {
@@ -445,7 +424,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        MPI_Wait(&req, MPI_STATUS_IGNORE);
+        MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
 
         for (i = 0; i < K; i++)
         {
@@ -455,7 +434,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
 
         // 3. Compute the maximum movement of a centroid compared to its previous position
         maxDist = FLT_MIN;
@@ -472,31 +451,25 @@ int main(int argc, char* argv[])
                 maxDist = distCentroids;
             }
         }
-        MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]);
+        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
 
         // 4. Re-initialize all the variables for the next iteration
         memcpy(centroids, auxCentroids, (K * samples * sizeof(float)));
         memset(pointsPerClass, 0, K * sizeof(int));
         memset(auxCentroids, 0.0, K * samples * sizeof(float));
 
-        MPI_Waitall(2, reqs, MPI_STATUS_IGNORE);
+        MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
         sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
         outputMsg = strcat(outputMsg, line);
     }
     while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
     // 5. Gather to the root process all the information that will be written in the output file
-    MPI_Gatherv(
+    MPI_CHECK_RETURN(MPI_Igatherv(
         localClassMap, lineOffset,
         MPI_INT, classMap, linesPerProcess,
-        displacementPerProcess, MPI_INT, 0, MPI_COMM_WORLD
-    );
-
-    /*
-     *
-     * STOP HERE: DO NOT CHANGE THE CODE BELOW THIS POINT
-     *
-     */
+        displacementPerProcess, MPI_INT, 0, MPI_COMM_WORLD, &req
+    ));
 
     //END CLOCK*****************************************
     end = MPI_Wtime();
@@ -530,6 +503,8 @@ int main(int argc, char* argv[])
             printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
         }
 
+
+        MPI_Wait(&req, MPI_STATUS_IGNORE);
         error = writeResult(classMap, lines, argv[6]);
         if (error != 0)
         {
@@ -548,6 +523,9 @@ int main(int argc, char* argv[])
     free(centroids);
     free(pointsPerClass);
     free(auxCentroids);
+    MPI_Request_free(&req);
+    MPI_Request_free(&reqs[0]);
+    MPI_Request_free(&reqs[1]);
 
     //END CLOCK*****************************************
     end = MPI_Wtime();
