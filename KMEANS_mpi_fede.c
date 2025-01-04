@@ -221,7 +221,6 @@ int pointClassMapping(
     return changes;
 }
 
-
 int main(int argc, char* argv[])
 {
     /* 0. Initialize MPI */
@@ -358,6 +357,8 @@ int main(int argc, char* argv[])
     int* linesPerProcess;
     int* displacementPerProcess;
     int* classMap;
+    int workPerProcess = (lines / size), workReminder = (lines % size);
+    int centroidsPerProcess = (K / size), centroidsReminder = (K % size);
 
     if (rank == 0)
     {
@@ -373,23 +374,43 @@ int main(int argc, char* argv[])
 
         for (i = 0; i < size; i++)
         {
-            linesPerProcess[i] = (i == (size - 1))
-                                        ? (lines / size) + lines % size
-                                        : (lines / size);
-            displacementPerProcess[i] = i * (lines / size);
+            displacementPerProcess[i] = i * workPerProcess, linesPerProcess[i] = workPerProcess;
+            if (i < workReminder)
+            {
+                displacementPerProcess[i] += i;
+                linesPerProcess[i]++;
+            }
+            else
+            {
+                displacementPerProcess[i] += workReminder;
+            }
         }
     }
 
     MPI_Request reqs[2], req;
     int startLine, lineOffset, startCentroid, centroidOffset;
-    startLine = rank * (lines / size);
-    lineOffset = (rank == (size - 1))
-                     ? (lines / size) + lines % size
-                     : (lines / size);
-    startCentroid = rank * (K / size);
-    centroidOffset = (rank == (size - 1))
-                         ? (K / size) + K % size
-                         : (K / size);
+    startLine = rank * workPerProcess, lineOffset = workPerProcess;
+    startCentroid = rank * centroidsPerProcess, centroidOffset = centroidsPerProcess;
+
+    if (rank < workReminder)
+    {
+        startLine += rank;
+        lineOffset++;
+    }
+    else
+    {
+        startLine += workReminder;
+    }
+
+    if (rank < centroidsReminder)
+    {
+        startCentroid += rank;
+        centroidOffset++;
+    }
+    else
+    {
+        startCentroid += centroidsReminder;
+    }
 
     int* localClassMap = calloc(sizeof(int), lineOffset);
     if (localClassMap == NULL)
