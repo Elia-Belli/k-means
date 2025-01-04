@@ -349,8 +349,7 @@ int main(int argc, char* argv[])
     }
 
     MPI_Request reqs[2], req;
-    int startLine, lineOffset, startCentroid, centroidOffset;
-    int class;
+    int startLine, lineOffset, startCentroid, centroidOffset, class;
     float_t dist, minDist;
     startLine = rank * workPerProcess, lineOffset = workPerProcess;
     startCentroid = rank * centroidsPerProcess, centroidOffset = centroidsPerProcess;
@@ -409,7 +408,7 @@ int main(int argc, char* argv[])
                 localClassMap[i] = class;
             }
 
-            pointsPerClass[localClassMap[i] - 1]++;
+            pointsPerClass[class - 1]++;
         }
 
         // 2. Compute the coordinates mean of all the point in the same class

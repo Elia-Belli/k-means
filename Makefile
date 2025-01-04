@@ -61,6 +61,9 @@ KMEANS_mpi_elia: ./mpi/KMEANS_mpi_elia.c
 KMEANS_mpi_fede: ./mpi/KMEANS_mpi_fede.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
+KMEANS_omp_fede: ./openmp/KMEANS_omp_fede.c
+	$(CC) -g $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
+
 # Remove the target files
 clean:
 	rm -rf $(OBJS)
