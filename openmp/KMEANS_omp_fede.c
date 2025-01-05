@@ -168,9 +168,9 @@ void initCentroids(const float* data, float* centroids, int* centroidPos, int sa
 Function euclideanDistance: Euclidean distance
 This function could be modified
 */
-float euclideanDistance(const float* point, const float* center, const int samples)
+float_t euclideanDistance(const float* point, const float* center, const int samples)
 {
-    float dist = 0.0;
+    float_t dist = 0.0;
     for (int i = 0; i < samples; i++)
     {
         dist += (point[i] - center[i]) * (point[i] - center[i]);
@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
 
     // Initial centrodis
     srand(0);
-    int i, j, ij;
+    int i, j;
     for (i = 0; i < K; i++)
         centroidPos[i] = rand() % lines;
 
@@ -279,7 +279,7 @@ int main(int argc, char* argv[])
     //**************************************************
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
-    float dist, minDist, maxDist;
+    float_t dist, minDist, maxDist;
     int cluster, changes, it = 0, auxCentroidsSize = K * samples;
 
     // pointPerClass: number of points classified in each class
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
         it++;
         changes = 0, maxDist = FLT_MIN;
 
-        #pragma omp parallel private(localAuxCentroids, i, j, ij)
+        #pragma omp parallel private(localAuxCentroids, i, j)
         {
 
             // 1. Assign each point to a class and count the elements in each class
@@ -330,7 +330,6 @@ int main(int argc, char* argv[])
 
             localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
             memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
             # pragma omp for private(cluster)
             for (i = 0; i < lines; i++)
@@ -342,7 +341,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            for (ij = 0; ij < auxCentroidsSize; ij++)
+            for (int ij = 0; ij < auxCentroidsSize; ij++)
             {
                 i = ij / samples;
                 #pragma omp atomic
@@ -362,6 +361,8 @@ int main(int argc, char* argv[])
                     maxDist = dist;
                 }
             }
+
+            free(localAuxCentroids);
         }
 
         memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
