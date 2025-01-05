@@ -311,7 +311,8 @@ int main(int argc, char* argv[])
             # pragma omp single nowait
             {
                 it++;
-                changes = 0, maxDist = FLT_MIN;
+                maxDist = FLT_MIN;
+                changes = 0;
             }
 
 
@@ -340,6 +341,7 @@ int main(int argc, char* argv[])
             }
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
+            memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
             # pragma omp for
             for (i = 0; i < lines; i++)
             {
@@ -356,6 +358,7 @@ int main(int argc, char* argv[])
                 # pragma omp atomic
                 auxCentroids[ij] += localAuxCentroids[ij] / pointsPerClass[i];
             }
+
 
             // 3. End the computation of the new centroids coordinates
             // and get the maximum movement of a centroid compared to its previous position
@@ -380,7 +383,6 @@ int main(int argc, char* argv[])
                 sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
                 outputMsg = strcat(outputMsg, line);
             }
-            memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
         }
         while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
