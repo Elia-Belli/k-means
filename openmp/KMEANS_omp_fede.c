@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
 
     // Initial centrodis
     srand(0);
-    int i, j;
+    int i, j, ij;
     for (i = 0; i < K; i++)
         centroidPos[i] = rand() % lines;
 
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
         it++;
         changes = 0, maxDist = FLT_MIN;
 
-        #pragma omp parallel private(localAuxCentroids, i, j)
+        #pragma omp parallel private(localAuxCentroids, i, j, ij)
         {
 
             // 1. Assign each point to a class and count the elements in each class
@@ -329,6 +329,11 @@ int main(int argc, char* argv[])
             }
 
             localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
+            if (localAuxCentroids == NULL)
+            {
+                fprintf(stderr, "Memory allocation error.\n");
+                exit(-4);
+            }
             memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
             # pragma omp for private(cluster)
@@ -341,7 +346,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            for (int ij = 0; ij < auxCentroidsSize; ij++)
+            for (ij = 0; ij < auxCentroidsSize; ij++)
             {
                 i = ij / samples;
                 #pragma omp atomic
@@ -372,7 +377,6 @@ int main(int argc, char* argv[])
         sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
         outputMsg = strcat(outputMsg, line);
     }
-
     while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
     // Output and termination conditions
