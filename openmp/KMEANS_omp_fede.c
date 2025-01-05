@@ -254,8 +254,7 @@ int main(int argc, char* argv[])
 
     // Initial centrodis
     srand(0);
-    int i, j, ij;
-    for (i = 0; i < K; i++)
+    for (int i = 0; i < K; i++)
         centroidPos[i] = rand() % lines;
 
     // Loading the array of initial centroids with the data from the array data
@@ -279,14 +278,13 @@ int main(int argc, char* argv[])
     //**************************************************
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
-    float_t dist, minDist, maxDist;
-    int cluster, changes, it = 0, auxCentroidsSize = K * samples;
+    int changes, it = 0, auxCentroidsSize = K * samples;
+    float_t maxDist;
 
     // pointPerClass: number of points classified in each class
     // auxCentroids: mean of the points in each class
     int* pointsPerClass = calloc(K, sizeof(int));
     float* auxCentroids = calloc(auxCentroidsSize, sizeof(float));
-    float* localAuxCentroids;
     if (pointsPerClass == NULL || auxCentroids == NULL)
     {
         fprintf(stderr, "Memory allocation error.\n");
@@ -295,16 +293,30 @@ int main(int argc, char* argv[])
 
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
-    do
-    {
-        it++;
-        changes = 0, maxDist = FLT_MIN;
 
-        #pragma omp parallel private(localAuxCentroids, i, j, ij)
+    # pragma omp parallel
+    {
+        float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
+        if (localAuxCentroids == NULL)
         {
+            fprintf(stderr, "Memory allocation error.\n");
+            exit(-4);
+        }
+
+        int i, j, ij, cluster;
+        float_t dist, minDist;
+        do
+        {
+            # pragma omp barrier
+            # pragma omp single nowait
+            {
+                it++;
+                changes = 0, maxDist = FLT_MIN;
+            }
+
 
             // 1. Assign each point to a class and count the elements in each class
-            # pragma omp for private(cluster, dist, minDist) reduction(+:changes, pointsPerClass[:K])
+            # pragma omp for nowait reduction(+:changes,pointsPerClass[:K])
             for (i = 0; i < lines; i++)
             {
                 cluster = 1, minDist = FLT_MAX;
@@ -324,19 +336,11 @@ int main(int argc, char* argv[])
                     classMap[i] = cluster;
                     changes++;
                 }
-
                 pointsPerClass[cluster - 1]++;
             }
 
-            localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
-            if (localAuxCentroids == NULL)
-            {
-                fprintf(stderr, "Memory allocation error.\n");
-                exit(-4);
-            }
-            memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
-            # pragma omp for private(cluster)
+            # pragma omp for
             for (i = 0; i < lines; i++)
             {
                 cluster = classMap[i] - 1;
@@ -349,14 +353,14 @@ int main(int argc, char* argv[])
             for (ij = 0; ij < auxCentroidsSize; ij++)
             {
                 i = ij / samples;
-                #pragma omp atomic
+                # pragma omp atomic
                 auxCentroids[ij] += localAuxCentroids[ij] / pointsPerClass[i];
             }
 
-
             // 3. End the computation of the new centroids coordinates
             // and get the maximum movement of a centroid compared to its previous position
-            # pragma omp for reduction(max:maxDist) private(dist)
+            # pragma omp barrier
+            # pragma omp for reduction(max:maxDist)
             for (i = 0; i < K; i++)
             {
                 dist = euclideanDistance(&centroids[i * samples], &auxCentroids[i * samples], samples);
@@ -367,18 +371,21 @@ int main(int argc, char* argv[])
                 }
             }
 
-            free(localAuxCentroids);
+            # pragma omp single nowait
+            {
+                memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
+                memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+                memset(pointsPerClass, 0, K * sizeof(int));
+
+                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                outputMsg = strcat(outputMsg, line);
+            }
+            memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
         }
+        while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
-        memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
-        memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-        memset(pointsPerClass, 0, K * sizeof(int));
-
-        sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-        outputMsg = strcat(outputMsg, line);
+        free(localAuxCentroids);
     }
-    while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
-
     // Output and termination conditions
     printf("%s", outputMsg);
 
