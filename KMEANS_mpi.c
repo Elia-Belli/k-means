@@ -185,7 +185,7 @@ float euclideanDistance(float *point, float *center, int samples)
 	{
 		dist+= (point[i]-center[i])*(point[i]-center[i]);
 	}
-	dist = sqrt(dist);
+	//dist = sqrt(dist);
 	return(dist);
 }
 
@@ -412,8 +412,12 @@ int main(int argc, char* argv[])
 
         // Mean of the centroids: reduce
         MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD));
-        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K*samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
         MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD)); //could be non-blocking
+
+        // local sum for auxCentroids
+
+        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K*samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+
 
         // Mean of the centroids: division
 		for(i = 0; i < K; i++) 
@@ -427,7 +431,7 @@ int main(int argc, char* argv[])
 		maxDist=FLT_MIN;
 		for(i = startCentroid[rank]; i < endCentroid[rank]; i++)
         {
-			distCentroids[i] = euclideanDistance(&centroids[i*samples], &auxCentroids[i*samples], samples);
+			distCentroids[i] = sqrt(euclideanDistance(&centroids[i*samples], &auxCentroids[i*samples], samples));
 			if(distCentroids[i] > maxDist) {
 				maxDist = distCentroids[i];
 			}

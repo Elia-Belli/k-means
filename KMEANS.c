@@ -310,7 +310,7 @@ int main(int argc, char* argv[])
 
 	//pointPerClass: number of points classified in each class
 	//auxCentroids: mean of the points in each class
-	int *pointsPerClass = (int *)malloc(K*sizeof(int));
+	int *pointsPerClass = (int*)malloc(K*sizeof(int));
 	float *auxCentroids = (float*)malloc(K*samples*sizeof(float));
 	float *distCentroids = (float*)malloc(K*sizeof(float)); 
 	if (pointsPerClass == NULL || auxCentroids == NULL || distCentroids == NULL)
@@ -359,7 +359,7 @@ int main(int argc, char* argv[])
 		for(i=0; i<lines; i++) 
 		{
 			class=classMap[i];
-			pointsPerClass[class-1] = pointsPerClass[class-1] +1;
+			pointsPerClass[class-1] = pointsPerClass[class-1] +1; //++
 			for(j=0; j<samples; j++){
 				auxCentroids[(class-1)*samples+j] += data[i*samples+j];
 			}
