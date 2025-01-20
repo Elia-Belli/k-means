@@ -294,7 +294,7 @@ int main(int argc, char* argv[])
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
 
-    # pragma omp parallel
+    # pragma omp parallel num_threads(8)
     {
         float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
         if (localAuxCentroids == NULL)
@@ -308,7 +308,7 @@ int main(int argc, char* argv[])
         do
         {
             # pragma omp barrier
-            # pragma omp single nowait
+            # pragma omp single
             {
                 it++;
                 maxDist = FLT_MIN;

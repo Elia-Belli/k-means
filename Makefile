@@ -53,7 +53,7 @@ KMEANS_cuda: KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 compare: compare.c
-	$(CC) $(FLAGS) -o ./bin/$@
+	$(CC) $(FLAGS) $< -o ./bin/$@
 
 KMEANS_mpi_elia: ./mpi/KMEANS_mpi_elia.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
