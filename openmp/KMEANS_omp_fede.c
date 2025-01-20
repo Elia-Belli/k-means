@@ -289,9 +289,9 @@ int main(int argc, char* argv[])
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
 
-    int changes;
-    int it = 0;
-    float_t maxDist;
+    int changes = 0;
+    int it = 1;
+    float_t maxDist = FLT_MIN;
 
     int endLoop = 0;
     int auxCentroidsSize = K * samples;
@@ -396,14 +396,16 @@ int main(int argc, char* argv[])
 
                 endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
 
-                it++;
-                maxDist = FLT_MIN;
-                changes = 0;
+                if(endLoop)
+                {
+                    it++;
+                    maxDist = FLT_MIN;
+                    changes = 0;
 
-                memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
-                memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-                memset(pointsPerClass, 0, K * sizeof(int));
-
+                    memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
+                    memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+                    memset(pointsPerClass, 0, K * sizeof(int));
+                }
             }
         }
         while (endLoop);
