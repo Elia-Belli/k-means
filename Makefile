@@ -19,7 +19,7 @@ FLAGS=-O3 -Wall
 LIBS=-lm
 
 # Targets to build
-OBJS=KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare
+OBJS=KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare test_generator
 
 # Rules. By default show help
 help:
@@ -63,6 +63,9 @@ KMEANS_mpi_fede: ./mpi/KMEANS_mpi_fede.c
 
 KMEANS_omp_fede: ./openmp/KMEANS_omp_fede.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
+
+test_generator: ./test_files/test_generator.c
+	$(CC) $(FLAGS) $(DEBUG) $< -o ./bin/$@
 
 # Remove the target files
 clean:
