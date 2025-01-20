@@ -290,6 +290,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Memory allocation error.\n");
         exit(-4);
     }
+    
 
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
@@ -380,8 +381,8 @@ int main(int argc, char* argv[])
                 memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
                 memset(pointsPerClass, 0, K * sizeof(int));
 
-                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-                outputMsg = strcat(outputMsg, line);
+                //sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                //outputMsg = strcat(outputMsg, line);
             }
         }
         while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
@@ -401,19 +402,11 @@ int main(int argc, char* argv[])
     //**************************************************
 
 
-    if
-    (changes
-        <=
-        minChanges
-    )
+    if (changes <= minChanges)
     {
         printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
     }
-    else if
-    (it
-        >=
-        maxIterations
-    )
+    else if (it >= maxIterations)
     {
         printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
     }
@@ -424,11 +417,7 @@ int main(int argc, char* argv[])
 
     // Writing the classification of each point to the output file.
     error = writeResult(classMap, lines, argv[6]);
-    if
-    (error
-        !=
-        0
-    )
+    if (error != 0)
     {
         showFileError(error, argv[6]);
         exit(error);
@@ -447,6 +436,5 @@ int main(int argc, char* argv[])
     printf("\n\nMemory deallocation: %f seconds\n", end - start);
     fflush(stdout);
     //***************************************************/
-    return
-        0;
+    return 0;
 }

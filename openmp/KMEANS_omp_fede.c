@@ -288,8 +288,14 @@ int main(int argc, char* argv[])
     //**************************************************
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
-    int changes, it = 0, auxCentroidsSize = K * samples;
+
+    int changes;
+    int it = 0;
     float_t maxDist;
+
+    int endLoop = 0;
+    int auxCentroidsSize = K * samples;
+    
 
     // pointPerClass: number of points classified in each class
     // auxCentroids: mean of the points in each class
@@ -304,8 +310,6 @@ int main(int argc, char* argv[])
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
 
-
-    int endLoop = 0;
     # pragma omp parallel num_threads(OMP_NUM_THREADS)
     {
         float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
@@ -317,6 +321,9 @@ int main(int argc, char* argv[])
 
         int i, j, ij, cluster;
         float_t dist, minDist;
+
+        # pragma omp barrier 
+
         do
         {
             // 1. Assign each point to a class and count the elements in each class
@@ -345,6 +352,7 @@ int main(int argc, char* argv[])
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
             memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+
             # pragma omp for
             for (i = 0; i < lines; i++)
             {
@@ -355,6 +363,7 @@ int main(int argc, char* argv[])
                 }
             }
             // Implicit barrier
+            
 
             for (ij = 0; ij < auxCentroidsSize; ij++)
             {
@@ -364,8 +373,7 @@ int main(int argc, char* argv[])
             }
 
 
-            // 3. End the computation of the new centroids coordinates
-            // and get the maximum movement of a centroid compared to its previous position
+            // 3. Get the maximum movement of a centroid compared to its previous position
             # pragma omp barrier
             # pragma omp for reduction(max:maxDist)
             for (i = 0; i < K; i++)
@@ -377,27 +385,25 @@ int main(int argc, char* argv[])
                     maxDist = dist;
                 }
             }
-
             // Implicit barrier
-            # pragma omp sections
+            
+            // 4. Check termination conditions and clean memory for the next iteration
+            # pragma omp single
             {
-                # pragma omp section
-                {
-                    sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-                    outputMsg = strcat(outputMsg, line);
 
-                    endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
+                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                outputMsg = strcat(outputMsg, line);
 
-                    it++;
-                    maxDist = FLT_MIN;
-                    changes = 0;
-                }
-                # pragma omp section
-                {
-                    memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
-                    memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-                    memset(pointsPerClass, 0, K * sizeof(int));
-                }
+                endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
+
+                it++;
+                maxDist = FLT_MIN;
+                changes = 0;
+
+                memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
+                memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+                memset(pointsPerClass, 0, K * sizeof(int));
+
             }
         }
         while (endLoop);
@@ -417,19 +423,11 @@ int main(int argc, char* argv[])
     //**************************************************
 
 
-    if
-    (changes
-        <=
-        minChanges
-    )
+    if (changes <= minChanges)
     {
         printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
     }
-    else if
-    (it
-        >=
-        maxIterations
-    )
+    else if (it >= maxIterations)
     {
         printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
     }
@@ -440,11 +438,7 @@ int main(int argc, char* argv[])
 
     // Writing the classification of each point to the output file.
     error = writeResult(classMap, lines, argv[6]);
-    if
-    (error
-        !=
-        0
-    )
+    if (error != 0)
     {
         showFileError(error, argv[6]);
         exit(error);
@@ -463,6 +457,5 @@ int main(int argc, char* argv[])
     printf("\n\nMemory deallocation: %f seconds\n", end - start);
     fflush(stdout);
     //***************************************************/
-    return
-        0;
+    return 0;
 }
