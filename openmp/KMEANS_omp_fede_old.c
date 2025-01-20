@@ -237,20 +237,10 @@ int main(int argc, char* argv[])
     }
 
     // Parameters
-    const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
-
-    if (RAW_OMP_NUM_THREADS == NULL)
-    {
-        fprintf(stderr, "OMP_NUM_THREADS not set.\n");
-        exit(-1);
-    }
-
-    const int OMP_NUM_THREADS = atoi(RAW_OMP_NUM_THREADS);
     const int K = atoi(argv[2]);
     int maxIterations = atoi(argv[3]);
     int minChanges = (int)(lines * atof(argv[4]) / 100.0);
     float maxThreshold = atof(argv[5]);
-
 
     int* centroidPos = (int*)calloc(K, sizeof(int));
     float* centroids = (float*)calloc(K * samples, sizeof(float));
@@ -304,9 +294,7 @@ int main(int argc, char* argv[])
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
 
-
-    int endLoop = 0;
-    # pragma omp parallel num_threads(OMP_NUM_THREADS)
+    # pragma omp parallel
     {
         float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
         if (localAuxCentroids == NULL)
@@ -319,6 +307,15 @@ int main(int argc, char* argv[])
         float_t dist, minDist;
         do
         {
+            # pragma omp barrier
+            # pragma omp single nowait
+            {
+                it++;
+                maxDist = FLT_MIN;
+                changes = 0;
+            }
+
+
             // 1. Assign each point to a class and count the elements in each class
             # pragma omp for nowait reduction(+:changes,pointsPerClass[:K])
             for (i = 0; i < lines; i++)
@@ -354,7 +351,6 @@ int main(int argc, char* argv[])
                     localAuxCentroids[cluster * samples + j] += data[i * samples + j];
                 }
             }
-            // Implicit barrier
 
             for (ij = 0; ij < auxCentroidsSize; ij++)
             {
@@ -378,29 +374,17 @@ int main(int argc, char* argv[])
                 }
             }
 
-            // Implicit barrier
-            # pragma omp sections
+            # pragma omp single nowait
             {
-                # pragma omp section
-                {
-                    sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-                    outputMsg = strcat(outputMsg, line);
+                memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
+                memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+                memset(pointsPerClass, 0, K * sizeof(int));
 
-                    endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
-
-                    it++;
-                    maxDist = FLT_MIN;
-                    changes = 0;
-                }
-                # pragma omp section
-                {
-                    memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
-                    memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-                    memset(pointsPerClass, 0, K * sizeof(int));
-                }
+                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                outputMsg = strcat(outputMsg, line);
             }
         }
-        while (endLoop);
+        while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
         free(localAuxCentroids);
     }
