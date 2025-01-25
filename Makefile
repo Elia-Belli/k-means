@@ -19,7 +19,7 @@ FLAGS=-O3 -Wall
 LIBS=-lm
 
 # Targets to build
-OBJS=KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare test_generator
+OBJS=KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda KMEANS++ compare test_generator
 
 # Rules. By default show help
 help:
@@ -43,14 +43,18 @@ all: $(OBJS)
 KMEANS_seq: KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
+KMEANS++: KMEANS++.c
+	$(CC) -g $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
+
 KMEANS_omp: KMEANS_omp.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_mpi: KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
+#-Xptxas -v : to see registers
 KMEANS_cuda: KMEANS_cuda.cu
-	$(CUDACC) $(DEBUG) $< $(LIBS) -o ./bin/$@
+	$(CUDACC) -Wno-deprecated-gpu-targets -arch=sm_50 -lm $< -o ./bin/$@			
 
 compare: compare.c
 	$(CC) $(FLAGS) $< -o ./bin/$@

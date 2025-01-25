@@ -307,12 +307,10 @@ int main(int argc, char* argv[])
         exit(-4);
     }
 
-    memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-    memset(pointsPerClass, 0, K * sizeof(int));
 
     # pragma omp parallel num_threads(OMP_NUM_THREADS)
     {
-        float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
+        float* localAuxCentroids = malloc(auxCentroidsSize * sizeof(float));
         if (localAuxCentroids == NULL)
         {
             fprintf(stderr, "Memory allocation error.\n");
@@ -368,6 +366,7 @@ int main(int argc, char* argv[])
             for (ij = 0; ij < auxCentroidsSize; ij++)
             {
                 i = ij / samples;
+                
                 # pragma omp atomic
                 auxCentroids[ij] += localAuxCentroids[ij] / pointsPerClass[i];
             }
