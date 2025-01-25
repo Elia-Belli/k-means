@@ -43,9 +43,6 @@ all: $(OBJS)
 KMEANS_seq: KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_triangular: KMEANS_triangular.c
-	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
-
 KMEANS_omp: KMEANS_omp.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
