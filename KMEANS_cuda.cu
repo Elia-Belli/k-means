@@ -112,6 +112,8 @@ __global__ void kmeansCentroidsSum(float *data, float *centroids, float *auxCent
 
     }
 
+    
+
     // 2. AuxCentroids Sum
     for(i = globID; i < lines; i += gridSize){
         for(j = 0; j < samples; j++){
@@ -139,7 +141,8 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
 {   
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int gridSize = gridDim.x * blockDim.x;
-    int i, dist;
+    int i;
+    float dist;
 
     for(i = globID; i < K; i += gridSize)
     {
@@ -453,7 +456,7 @@ int main(int argc, char* argv[])
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int endLoop = 1;
-    dim3 gridSize = 4, blockSize = 256;
+    dim3 gridSize = 4, blockSize = 512;
 
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));      // OK : constant memory? too big prolly
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_centroids, K*samples*sizeof(float)));     // OK

@@ -54,7 +54,7 @@ KMEANS_mpi: KMEANS_mpi.c
 
 #-Xptxas -v : to see registers
 KMEANS_cuda: KMEANS_cuda.cu
-	$(CUDACC) -Wno-deprecated-gpu-targets -arch=sm_50 -lm $< -o ./bin/$@			
+	$(CUDACC) -Wno-deprecated-gpu-targets -arch=sm_50 -fmad=false -lm $< -o ./bin/$@			
 
 compare: compare.c
 	$(CC) $(FLAGS) $< -o ./bin/$@
