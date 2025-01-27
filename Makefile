@@ -15,7 +15,7 @@ MPICC=mpicc
 CUDACC=nvcc
 
 # Flags for optimization and libs
-FLAGS=-O3 -Wall
+FLAGS=-O3 -Walld
 LIBS=-lm
 
 # Targets to build
