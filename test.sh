@@ -1,5 +1,4 @@
-TESTNUM=20
-
+TESTNUM=1
 INPUT="./k-means/test_files/input100D2.inp"
 K=10000
 ITER=150
@@ -18,16 +17,12 @@ cd ..
 rm "logs/test_mpi.txt"
 rm "logs/test_omp.txt"
 
-for ((i = 0; i < TESTNUM; i++));
+for ((i=0; i < TESTNUM; i++));
 do
-    condor_submit job.sub -append "executable = $MPI_EXE" -append "arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/mpi.txt" -append 'requirements = (Machine == "node113.di.rm1")'
-
-    cat logs/job.out >> "logs/test_mpi.txt" 
+	mpirun -np 4 ./k-means/bin/KMEANS_mpi "$INPUT" "$K" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "./k-means/bin/out/mpi.txt"
 done
 
-
-for ((i = 0; i < TESTNUM; i++));
+for ((i=0; i < TESTNUM; i++));
 do
-    condor_submit job.sub -append "executable = $OMP_EXE" -append "arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/omp.txt" -append 'requirements = (Machine == "node113.di.rm1")'
-    cat logs/job.out >> "logs/test_omp.txt" 
+	./k-means/bin/KMEANS_omp "$INPUT" "$K" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "./k-means/bin/out/omp.txt"
 done
