@@ -44,11 +44,20 @@ all: $(OBJS)
 KMEANS_seq: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
+KMEANS_seq_D: ./source/KMEANS.c
+	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
+
 KMEANS_omp: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ 
+
+KMEANS_omp_D: ./source/KMEANS_omp.c
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
 KMEANS_mpi: ./source/KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
+
+KMEANS_mpi_D: ./source/KMEANS_mpi.c
+	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
 # Xptxas -v : registers
 KMEANS_cuda: ./source/KMEANS_cuda.cu

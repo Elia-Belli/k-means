@@ -178,7 +178,6 @@ float_t euclideanDistance(const float* point, const float* center, const int sam
     return sqrt(dist);
 }
 
-
 int main(int argc, char* argv[])
 {
     //START CLOCK***************************************
@@ -322,7 +321,7 @@ int main(int argc, char* argv[])
         do
         {
             // 1. Assign each point to a class and count the elements in each class
-            # pragma omp for nowait reduction(+:changes,pointsPerClass[:K])
+            # pragma omp for nowait reduction(+:changes, pointsPerClass[:K])
             for (i = 0; i < lines; i++)
             {
                 cluster = 1, minDist = FLT_MAX;
@@ -357,7 +356,7 @@ int main(int argc, char* argv[])
                 }
             }
             
-
+            // TODO: Reduce ad albero
             for (ij = 0; ij < auxCentroidsSize; ij++)
             {
                 i = ij / samples;
@@ -378,14 +377,16 @@ int main(int argc, char* argv[])
                 {
                     maxDist = dist;
                 }
+                pointsPerClass[i] = 0;
             }
             
             // 4. Check termination conditions and clean memory for the next iteration
             # pragma omp single
             {
-
+                #ifdef DEBUG
                 sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
                 outputMsg = strcat(outputMsg, line);
+                #endif
 
                 endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
 
@@ -397,7 +398,6 @@ int main(int argc, char* argv[])
 
                     memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
                     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-                    memset(pointsPerClass, 0, K * sizeof(int));
                 }
             }
         }

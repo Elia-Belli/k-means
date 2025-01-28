@@ -382,8 +382,10 @@ int main(int argc, char* argv[])
 		}
 		memcpy(centroids, auxCentroids, (K*samples*sizeof(float)));
 		
+        #ifdef DEBUG
 		sprintf(line,"\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
 		outputMsg = strcat(outputMsg,line);
+        #endif
 
 	} while((changes>minChanges) && (it<maxIterations) && (maxDist>maxThreshold));
 

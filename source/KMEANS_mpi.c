@@ -412,8 +412,8 @@ int main(int argc, char* argv[])
         }
 
         // 2. Compute the coordinates mean of all the point in the same class
-        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
+        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
 
         for (i = 0; i < lineOffset; i++)
         {
@@ -457,9 +457,13 @@ int main(int argc, char* argv[])
         memset(pointsPerClass, 0, K * sizeof(int));
         memset(auxCentroids, 0.0, K * samples * sizeof(float));
 
-        MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
+        #ifdef DEBUG
         sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
         outputMsg = strcat(outputMsg, line);
+        #endif
+
+        MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
+
     }
     while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
