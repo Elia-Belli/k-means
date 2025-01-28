@@ -48,7 +48,7 @@ KMEANS_seq_D: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
 KMEANS_omp: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ 
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_omp_D: ./source/KMEANS_omp.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
