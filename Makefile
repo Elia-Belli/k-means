@@ -15,11 +15,12 @@ MPICC=mpicc
 CUDACC=nvcc
 
 # Flags for optimization and libs
-FLAGS=-O3 -Walld
+FLAGS=-O3 -Wall
 LIBS=-lm
+ARCH=-arch=sm_50 #cluster: sm_75
 
 # Targets to build
-OBJS=KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare test_generator
+OBJS= KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare test_generator
 
 # Rules. By default show help
 help:
@@ -40,34 +41,23 @@ help:
 
 all: $(OBJS)
 
-KMEANS_seq: KMEANS.c
+KMEANS_seq: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_omp: KMEANS_omp.c
+KMEANS_omp: ./source/KMEANS_omp.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_mpi: KMEANS_mpi.c
+KMEANS_mpi: ./source/KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_cuda: KMEANS_cuda.cu
+# Xptxas -v : registers
+KMEANS_cuda: ./source/KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
-compare: compare.c
+compare: ./source/utils/compare.c
 	$(CC) $(FLAGS) $< -o ./bin/$@
 
-KMEANS_mpi_elia: ./mpi/KMEANS_mpi_elia.c
-	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_mpi_fede: ./mpi/KMEANS_mpi_fede.c
-	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_omp_fede: ./openmp/KMEANS_omp_fede.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_omp_fede_old: ./openmp/KMEANS_omp_fede_old.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
-
-test_generator: ./test_files/test_generator.c
+test_generator: ./source/utils/test_generator.c
 	$(CC) $(FLAGS) $(DEBUG) $< -o ./bin/$@
 
 # Remove the target files

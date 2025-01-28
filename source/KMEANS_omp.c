@@ -237,15 +237,7 @@ int main(int argc, char* argv[])
     }
 
     // Parameters
-    const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
 
-    if (RAW_OMP_NUM_THREADS == NULL)
-    {
-        fprintf(stderr, "OMP_NUM_THREADS not set.\n");
-        exit(-1);
-    }
-
-    const int OMP_NUM_THREADS = atoi(RAW_OMP_NUM_THREADS);
     const int K = atoi(argv[2]);
     int maxIterations = atoi(argv[3]);
     int minChanges = (int)(lines * atof(argv[4]) / 100.0);
@@ -289,6 +281,10 @@ int main(int argc, char* argv[])
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
 
+
+    const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
+    const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
+
     int changes = 0;
     int it = 1;
     float_t maxDist = FLT_MIN;
@@ -296,7 +292,6 @@ int main(int argc, char* argv[])
     int endLoop = 0;
     int auxCentroidsSize = K * samples;
     
-
     // pointPerClass: number of points classified in each class
     // auxCentroids: mean of the points in each class
     int* pointsPerClass = calloc(K, sizeof(int));
@@ -351,7 +346,6 @@ int main(int argc, char* argv[])
             }
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
-            memset(localAuxCentroids, 0.0, auxCentroidsSize * sizeof(float));
 
             # pragma omp for
             for (i = 0; i < lines; i++)
@@ -362,7 +356,6 @@ int main(int argc, char* argv[])
                     localAuxCentroids[cluster * samples + j] += data[i * samples + j];
                 }
             }
-            // Implicit barrier
             
 
             for (ij = 0; ij < auxCentroidsSize; ij++)
@@ -370,6 +363,7 @@ int main(int argc, char* argv[])
                 i = ij / samples;
                 # pragma omp atomic
                 auxCentroids[ij] += localAuxCentroids[ij] / pointsPerClass[i];
+                localAuxCentroids[ij] = 0.0;
             }
 
 
@@ -385,7 +379,6 @@ int main(int argc, char* argv[])
                     maxDist = dist;
                 }
             }
-            // Implicit barrier
             
             // 4. Check termination conditions and clean memory for the next iteration
             # pragma omp single

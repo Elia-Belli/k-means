@@ -1,30 +1,32 @@
 TESTNUM=20
 
-rm test_log_b1.txt
-rm test_log_b2.txt
-make KMEANS_omp_fede
-make KMEANS_omp_fede_old
+INPUT="./k-means/test_files/input100D2.inp"
+K=10000
+ITER=150
+MIN_CHANGES=0.01
+MAX_DIST=0.01
 
-export OMP_NUM_THREADS=8
+MPI_EXE=./k-means/bin/KMEANS_mpi
+OMP_EXE=./k-means/bin/KMEANS_omp
+CUDA_EXE=./k-means/bin/KMEANS_cuda
 
-echo "Esecuzione prima batteria di test" >> "test_log_b1.txt"
+cd k-means
+make KMEANS_mpi
+make KMEANS_omp
+cd ..
+
+rm "logs/test_mpi.txt"
+rm "logs/test_omp.txt"
+
+for ((i = 0; i < TESTNUM; i++));
+do
+    condor_submit job.sub -append 'executable = $MPI_EXE' -append 'arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/mpi.txt'
+    cat logs/log.out >> "logs/test_mpi.txt" 
+done
 
 
 for ((i = 0; i < TESTNUM; i++));
 do
-    #./bin/KMEANS_omp_fede "./test_files/input100D2.inp" 10000 150 0.1 0.1 "./bin/out/KMEANS_big_omp_fede.txt" >> "test_log_b1.txt"
-    ./bin/KMEANS_omp_fede "./test_files/input20D.inp" 50 150 0.01 0.01 "./bin/out/KMEANS_small_omp_fede.txt" >> "test_log_b1.txt"
+    condor_submit job.sub -append 'executable = $OMP_EXE' -append 'arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/omp.txt'
+    cat logs/log.out >> "logs/test_omp.txt" 
 done
-
-
-echo "Esecuzione seconda batteria di test\n\n\n" >> "test_log_b2.txt"
-
-for ((i = 0; i < TESTNUM; i++));
-do
-    #./bin/KMEANS_omp_fede_old "./test_files/input100D2.inp" 10000 150 0.1 0.1 "./bin/out/KMEANS_big_omp_fede_old.txt" >> "test_log_b2.txt"
-    ./bin/KMEANS_omp_fede_old "./test_files/input20D.inp" 50 150 0.01 0.01 "./bin/out/KMEANS_small_omp_fede_old.txt" >> "test_log_b2.txt"
-done
-
-
-
-# output di new (batteria 1) leggermente differente su: "./test_files/input20D.inp" 50 150 0.01 0.01
