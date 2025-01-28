@@ -1,7 +1,4 @@
 /bin/*
-!/bin
-/bin/out/*
-!/bin/out
 
 .idea
 .vscode
