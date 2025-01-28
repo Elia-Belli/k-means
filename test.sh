@@ -20,13 +20,13 @@ rm "logs/test_omp.txt"
 
 for ((i = 0; i < TESTNUM; i++));
 do
-    condor_submit job.sub -append 'executable = $MPI_EXE' -append 'arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/mpi.txt'
+    condor_submit job.sub -append "executable = $MPI_EXE" -append "arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/mpi.txt"
     cat logs/job.out >> "logs/test_mpi.txt" 
 done
 
 
 for ((i = 0; i < TESTNUM; i++));
 do
-    condor_submit job.sub -append 'executable = $OMP_EXE' -append 'arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/omp.txt'
+    condor_submit job.sub -append "executable = $OMP_EXE" -append "arguments = $INPUT $K $ITER $MIN_CHANGES $MAX_DIST k-means/bin/out/omp.txt"
     cat logs/job.out >> "logs/test_omp.txt" 
 done
