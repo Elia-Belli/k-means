@@ -63,6 +63,9 @@ KMEANS_mpi_D: ./source/KMEANS_mpi.c
 KMEANS_cuda: ./source/KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
+KMEANS_cuda_D: ./source/KMEANS_cuda.cu
+	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) -o ./bin/$@ -D DEBUG
+
 compare: ./source/utils/compare.c
 	$(CC) $(FLAGS) $< -o ./bin/$@
 

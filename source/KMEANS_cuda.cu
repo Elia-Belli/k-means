@@ -31,6 +31,8 @@
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
+void getDeviceProperties(int device, int* SMcount, int* maxThreadsPerBlock, size_t* maxSharedMem);
+
 /*
  * Macros to show errors when calling a CUDA library function,
  * or after launching a kernel
@@ -66,7 +68,6 @@ float euclideanDistance(float *point, float *center, int samples)
 	for(int i = 0; i < samples; i++) 
 	{
 		dist += (point[i]-center[i])*(point[i]-center[i]);
-        //dist += point[i]*point[i] + center[i] * center[i] - (2* point[i] * center[i]);
 	}
 
 	dist = sqrt(dist);
@@ -74,15 +75,15 @@ float euclideanDistance(float *point, float *center, int samples)
 }
 
 
-__global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int *pointsPerClass,
+__global__ void kmeansMapClassOptimized(float *data, float *centroids, int *classMap, int *pointsPerClass,
             int* changes, int lines, int samples, int K)
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int locID = threadIdx.x;
     int gridSize = gridDim.x * blockDim.x;  // total threads
-    extern __shared__ int shared[];  // local accumulator K+1 int
-    int* localChanges = &shared[0];
-    int* localPointsPerClass = &shared[1];
+    extern __shared__ int shared[];  
+    int* localPointsPerClass = (int*) &shared[0];
+    float* localCentroids = (float*) &shared[K]; 
     int i, j;
 
     // Init shared pointsPerClass
@@ -90,19 +91,24 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
     {
         localPointsPerClass[i] = 0;
     }
-    //if(globID == 0) *localChanges = 0;
+
+    // Copy centroids in SharedMem to reduce global memory access
+    for(i = locID; i < K*samples; i += blockDim.x)
+    {
+        localCentroids[i] = centroids[i];
+    }
 
     __syncthreads();
 
     float minDist, dist;
-    int cluster, threadChanges = 0;
+    int cluster, localChanges = 0;
     for(i = globID; i < lines; i+= gridSize)
     {   
         minDist = FLT_MAX;
         cluster = 1;
         for(j = 0; j < K; j++)
         {
-            dist = euclideanDistance(&data[i * samples], &centroids[j * samples], samples); 
+            dist = euclideanDistance(&data[i * samples], &localCentroids[j * samples], samples);
 
             if(dist < minDist)
             {
@@ -113,14 +119,15 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
 
         if(classMap[i] != cluster)
         {
-            threadChanges++;
+            localChanges++;
             classMap[i] = cluster;
         }
 
         atomicAdd(&localPointsPerClass[cluster-1], 1);
+
     }
 
-    atomicAdd(changes, threadChanges);
+    atomicAdd(changes, localChanges);
 
     __syncthreads();
 
@@ -129,8 +136,61 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
     {
         atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
     }
+}
 
-    //if(globID == 0) atomicAdd(changes, *localChanges);
+__global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int *pointsPerClass,
+            int* changes, int lines, int samples, int K)
+{
+    int globID = blockIdx.x * blockDim.x + threadIdx.x;
+    int locID = threadIdx.x;
+    int gridSize = gridDim.x * blockDim.x;  // total threads
+    extern __shared__ int localPointsPerClass[];  // local accumulator
+    int i, j;
+
+    // Init shared pointsPerClass
+    for(i = locID; i < K; i += blockDim.x)
+    {
+        localPointsPerClass[i] = 0;
+    }
+
+    __syncthreads();
+
+    float minDist, dist;
+    int cluster, localChanges = 0;
+    for(i = globID; i < lines; i+= gridSize)
+    {   
+        minDist = FLT_MAX;
+        cluster = 1;
+        for(j = 0; j < K; j++)
+        {
+            dist = euclideanDistance(&data[i * samples], &centroids[j * samples], samples);
+
+            if(dist < minDist)
+            {
+                minDist = dist;
+                cluster = j+1;
+            }
+        }
+
+        if(classMap[i] != cluster)
+        {
+            localChanges++;
+            classMap[i] = cluster;
+        }
+
+        atomicAdd(&localPointsPerClass[cluster-1], 1);
+
+    }
+
+    atomicAdd(changes, localChanges);
+
+    __syncthreads();
+
+    // Sum localPointPerClass in global pointsPerClass
+    for(i = locID; i < K; i += blockDim.x)
+    {
+        atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
+    }
 }
 
 
@@ -174,21 +234,16 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
     int gridSize = gridDim.x * blockDim.x;
     __shared__ float localMaxDist;
     int i;
-    float dist, threadMaxDist = FLT_MIN;
+    float dist;
 
-    if(globID == 0) localMaxDist = FLT_MIN;
+    if(globID == 0) localMaxDist = 0;
     __syncthreads();
 
     for(i = globID; i < K; i += gridSize)
     {
         dist = euclideanDistance(&auxCentroids[i * samples], &centroids[i * samples], samples);
-        if(dist > threadMaxDist)
-        {
-            threadMaxDist = dist;
-        }
+        atomicMax(&localMaxDist, dist);
     }
-
-    atomicMax(&localMaxDist, threadMaxDist);
 
     __syncthreads();
     if(globID == 0) atomicMax(maxDist, localMaxDist);
@@ -495,19 +550,19 @@ int main(int argc, char* argv[])
  * START HERE: DO NOT CHANGE THE CODE ABOVE THIS POINT
  *
  */
+    int SMcount, maxThreadsPerBlock;
+    size_t sharedOptimizationSize, maxSharedMem, sharedMemMapClass;
+    getDeviceProperties(0, &SMcount, &maxThreadsPerBlock, &maxSharedMem);
+
+    sharedOptimizationSize = K*sizeof(int) + K* samples * sizeof(float);
+    sharedMemMapClass = (sharedOptimizationSize < maxSharedMem) ? sharedOptimizationSize : (K*sizeof(int));
 
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int endLoop = 1;
-    dim3 gridSize = 2, blockSize = 1024; // best sizes tried: 2x1024 on MX130
+    dim3 gridSize = SMcount, blockSize = maxThreadsPerBlock; // best sizes tried: 2x1024 on MX130
 
-    // NOTE: tried but doesn't seem to estimate well, suggested 6x1024 on MX130
-    // int minGridSize, suggBlockSize;
-    // cudaOccupancyMaxPotentialBlockSize(&minGridSize, &suggBlockSize, kmeansMapClass, 0 , 0);
-    // printf("Suggested grid: %d, block: %d\n", minGridSize, suggBlockSize);
-
-
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));      // OK : constant memory? too big prolly
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));      // OK
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_centroids, K*samples*sizeof(float)));     // OK
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_auxCentroids, K*samples*sizeof(float)));  // OK
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_classMap, lines*sizeof(int)));    // OK
@@ -521,11 +576,8 @@ int main(int argc, char* argv[])
     // Initialize ClassMap on GPU
     CHECK_CUDA_CALL(cudaMemset(d_classMap, 0, lines*sizeof(int)));
     
-    void* argsMap[] = {&d_data, &d_centroids, &d_classMap, &d_pointPerClass,
-                        &d_changes, &lines, &samples, &K};
-    //CHECK_CUDA_CALL(cudaFuncSetCacheConfig(kmeansMapClass, cudaFuncCachePreferL1));
-    void* argsCentroidsSum[] = {&d_data, &d_auxCentroids, &d_pointPerClass, &d_classMap,
-                            &lines, &samples, &K};
+    void* argsMap[] = {&d_data, &d_centroids, &d_classMap, &d_pointPerClass, &d_changes, &lines, &samples, &K};
+    void* argsCentroidsSum[] = {&d_data, &d_auxCentroids, &d_pointPerClass, &d_classMap, &lines, &samples, &K};
     void* argsCentroidsDiv[] = {&d_auxCentroids, &d_pointPerClass, &samples, &K};
     void* argsMaxDist[] = {&d_auxCentroids, &d_centroids, &d_pointPerClass, &d_maxDist, &samples, &K};
 
@@ -537,8 +589,11 @@ int main(int argc, char* argv[])
         CHECK_CUDA_CALL(cudaMemset(d_pointPerClass, 0, K*sizeof(int)));
 
         // Kernerls
-        //CHECK_CUDA_CALL(cudaDeviceSynchronize());
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMap, (K+1)*sizeof(int), NULL));
+        if(sharedOptimizationSize < maxSharedMem){
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClassOptimized, gridSize, blockSize, argsMap, sharedOptimizationSize, NULL));
+        }else{
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMap, sharedMemMapClass, NULL));
+        }
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
         CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsSum, gridSize, blockSize, argsCentroidsSum, 0, NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
@@ -551,12 +606,12 @@ int main(int argc, char* argv[])
         // Get MaxDist & Changes back to CPU
         CHECK_CUDA_CALL(cudaMemcpy(&maxDist, d_maxDist, sizeof(float), cudaMemcpyDeviceToHost));
         CHECK_CUDA_CALL(cudaMemcpy(&changes, d_changes, sizeof(int), cudaMemcpyDeviceToHost));
-        
-        //CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
         // Print iteration info
+        #ifdef DEBUG
         sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
         outputMsg = strcat(outputMsg, line);
+        #endif
 
         // Check Termination Conditions
         endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
@@ -635,4 +690,38 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
+
+/*
+    Gets properties of cuda device
+    in: int device (number of device)
+    out: int* SMcount, int* maxSharedMem
+*/
+void getDeviceProperties(int device, int* SMcount, int* threadsPerBlock, size_t* maxSharedMem)
+{
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, device);
+
+    *SMcount = prop.multiProcessorCount;
+    *threadsPerBlock = prop.maxThreadsPerBlock;
+    *maxSharedMem = prop.sharedMemPerBlock;
+
+    #ifdef DEBUG
+    printf("  Memory Clock Rate (MHz): %d\n", prop.memoryClockRate/1024);
+    printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+
+    printf("  Peak Memory Bandwidth (GB/s): %.1f\n",
+        2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
+    printf("  Total global memory (Gbytes) %.1f\n",(float)(prop.totalGlobalMem)/1024.0/1024.0/1024.0);
+    printf("  Shared memory per block (Bytes) %.1f\n",(float)(prop.sharedMemPerBlock));
+    printf("  Shared memory per SM (Bytes) %.1f\n",(float)(prop.sharedMemPerMultiprocessor));
+    
+    printf("  SM count : %d\n", prop.multiProcessorCount);
+    printf("  Warp-size: %d\n", prop.warpSize);
+    printf("  max-grid-size: (%d, %d, %d)\n", prop.maxGridSize[0],prop.maxGridSize[1],prop.maxGridSize[2]);
+    printf("  max-threads-per-block: %d\n", prop.maxThreadsPerBlock);
+    printf("  max-threads-per-multiprocessor: %d\n", prop.maxThreadsPerMultiProcessor);
+    printf("  register-per-block: %d\n", prop.regsPerBlock);
+    #endif
+    
+}
 
