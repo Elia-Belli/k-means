@@ -22,6 +22,7 @@
 #include <string.h>
 #include <float.h>
 #include <mpi.h>
+#include <assert.h>
 
 #define MAXLINE 2000
 #define MAXCAD 200
@@ -191,7 +192,8 @@ float_t euclideanDistance(const float* point, const float* center, const int sam
 int main(int argc, char* argv[])
 {
     /* 0. Initialize MPI */
-    MPI_Init(&argc, &argv);
+    int provided;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
     int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -302,14 +304,16 @@ int main(int argc, char* argv[])
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
 
-    int it = 0, changes = 0;
-    float_t maxDist, dist, minDist;
-    int cluster, j;
+    int j, it = 1;
+    int changes = 0;
+    int anotherIteration = 1;
+    float_t dist, minDist, maxDist = FLT_MIN;
+
 
     //pointPerClass: number of points classified in each class
     //auxCentroids: mean of the points in each class
-    int* pointsPerClass = (int*)calloc(K, sizeof(int));
-    float* auxCentroids = (float*)calloc(K * samples, sizeof(float));
+    int* pointsPerClass = (int*) calloc(K , sizeof(int));
+    float* auxCentroids = (float*) calloc(K * samples, sizeof(float));
     if (pointsPerClass == NULL || auxCentroids == NULL)
     {
         fprintf(stderr, "Memory allocation error.\n");
@@ -350,7 +354,7 @@ int main(int argc, char* argv[])
     }
 
     MPI_Request reqs[2], req;
-    int startLine, lineOffset, startCentroid, centroidOffset;
+    int startLine, lineOffset, startCentroid, centroidOffset, cluster;
     startLine = rank * workPerProcess, lineOffset = workPerProcess;
     startCentroid = rank * centroidsPerProcess, centroidOffset = centroidsPerProcess;
 
@@ -382,91 +386,140 @@ int main(int argc, char* argv[])
     }
 
 
-    do
-    {
-        it++;
+    #pragma omp parallel num_threads(2) private(i, j, cluster, dist, minDist)
+    {   
+        float* threadAuxCentroids = calloc(K*samples, sizeof(float));
+        assert(threadAuxCentroids != NULL);
 
-        // 1. Assign each point to a class and count the elements in each class
-        changes = 0;
-        for (i = 0; i < lineOffset; i++)
+        do
         {
-            cluster = 1, minDist = FLT_MAX;
-            for (j = 0; j < K; j++)
+            // 1. Assign each point to a class and count the elements in each class
+            #pragma omp for reduction(+:changes, pointsPerClass[:K])
+            for (i = 0; i < lineOffset; i++)
             {
-                dist = euclideanDistance(&data[(startLine + i) * samples], &centroids[j * samples], samples);
-
-                if (dist < minDist)
+                cluster = 1, minDist = FLT_MAX;
+                for (j = 0; j < K; j++)
                 {
-                    minDist = dist;
-                    cluster = j + 1;
+                    dist = euclideanDistance(&data[(startLine + i) * samples], &centroids[j * samples], samples);
+
+                    if (dist < minDist)
+                    {
+                        minDist = dist;
+                        cluster = j + 1;
+                    }
+                }
+                if (localClassMap[i] != cluster)
+                {
+                    changes++;
+                    localClassMap[i] = cluster;
+                }
+
+                pointsPerClass[cluster - 1]++;
+            }
+        
+
+            // 2. Compute the coordinates mean of all the point in the same class
+            # pragma omp barrier
+            # pragma omp single
+            {
+                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
+                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
+            }
+            # pragma omp barrier
+
+            
+            # pragma omp for
+            for (i = 0; i < lineOffset; i++)
+            {   
+                cluster = localClassMap[i] - 1;
+                for (j = 0; j < samples; j++)
+                {
+                    threadAuxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
                 }
             }
-            if (localClassMap[i] != cluster)
-            {
-                changes++;
-                localClassMap[i] = cluster;
+            
+            # pragma omp barrier
+            # pragma omp single
+            MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));      
+            # pragma omp barrier
+  
+
+            for (i = 0; i < K*samples; i++)
+            {   
+                j = i/samples;
+                # pragma omp atomic
+                auxCentroids[i] += threadAuxCentroids[i] / pointsPerClass[j];
+                threadAuxCentroids[i] = 0.0;
             }
 
-            pointsPerClass[cluster - 1]++;
-        }
-
-        // 2. Compute the coordinates mean of all the point in the same class
-        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
-        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
-
-        for (i = 0; i < lineOffset; i++)
-        {
-            cluster = localClassMap[i] - 1;
-            for (j = 0; j < samples; j++)
-            {
-                auxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
+            #ifdef DEBU
+            for(i = 0; i < K; i++){
+                printf("K: %d, points: %d\n", i, pointsPerClass[i]);
             }
-        }
 
-        MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
-
-        for (i = 0; i < K; i++)
-        {
-            for (j = 0; j < samples; j++)
-            {
-                auxCentroids[i * samples + j] /= pointsPerClass[i];
+            for(i = 0; i<K; i++){
+                printf("K: %d, [", i);
+                for(j = 0; j < samples; j++){
+                    printf("%f, ", auxCentroids[i * samples +j]);
+                }
+                printf("]\n");
             }
-        }
+            #endif
+            
+            # pragma omp barrier
+            # pragma omp single
+            MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+            # pragma omp barrier
 
-        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
 
-        // 3. Compute the maximum movement of a centroid compared to its previous position
-        maxDist = FLT_MIN;
-        for (i = 0; i < centroidOffset; i++)
-        {
-            dist = euclideanDistance(
-                &centroids[(startCentroid + i) * samples],
-                &auxCentroids[(startCentroid + i) * samples],
-                samples
-            );
-
-            if (dist > maxDist)
+            // 3. Compute the maximum movement of a centroid compared to its previous position
+            # pragma omp for reduction(max:maxDist)
+            for (i = 0; i < centroidOffset; i++)
             {
-                maxDist = dist;
+                dist = euclideanDistance(
+                    &centroids[(startCentroid + i) * samples],
+                    &auxCentroids[(startCentroid + i) * samples],
+                    samples
+                );
+
+                if (dist > maxDist)
+                {   
+                    maxDist = dist;
+                }
+                pointsPerClass[i] = 0;
             }
-        }
 
-        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
+            # pragma omp barrier
+            # pragma omp single
+            {
+                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
 
-        // 4. Re-initialize all the variables for the next iteration
-        memcpy(centroids, auxCentroids, (K * samples * sizeof(float)));
-        memset(pointsPerClass, 0, K * sizeof(int));
-        memset(auxCentroids, 0.0, K * samples * sizeof(float));
+                // 4. Re-initialize all the variables for the next iteration
+                memcpy(centroids, auxCentroids, (K * samples * sizeof(float)));
+                memset(auxCentroids, 0.0, K * samples * sizeof(float));
 
-        #ifdef DEBUG
-        sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-        outputMsg = strcat(outputMsg, line);
-        #endif
+                MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
+                
+                #ifdef DEBUG
+                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                outputMsg = strcat(outputMsg, line);
+                #endif
 
-        MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
+                anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
 
+                if (anotherIteration)
+                {
+                    it++;
+                    maxDist = FLT_MIN;
+                    changes = 0;
+                }
+
+            }
+            # pragma omp barrier
+
+
+        } while (anotherIteration);
     }
-    while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
 
     // 5. Gather to the root process all the information that will be written in the output file
     MPI_CHECK_RETURN(MPI_Igatherv(
@@ -474,6 +527,7 @@ int main(int argc, char* argv[])
         MPI_INT, classMap, linesPerProcess,
         displacementPerProcess, MPI_INT, 0, MPI_COMM_WORLD, &req
     ));
+    
 
     //END CLOCK*****************************************
     end = MPI_Wtime();

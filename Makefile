@@ -20,7 +20,7 @@ LIBS=-lm
 ARCH=-arch=sm_50 #cluster: sm_75
 
 # Targets to build
-OBJS= KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda compare test_generator
+OBJS= KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda KMEANS_mpi+omp compare test_generator
 
 # Rules. By default show help
 help:
@@ -41,31 +41,42 @@ help:
 
 all: $(OBJS)
 
+# seq
 KMEANS_seq: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_seq_D: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
-
-KMEANS_omp: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_omp_D: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
-
+	
+# mpi
 KMEANS_mpi: ./source/KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
 KMEANS_mpi_D: ./source/KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
-# Xptxas -v : registers
+# omp
+KMEANS_omp: ./source/KMEANS_omp.c
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
+
+KMEANS_omp_D: ./source/KMEANS_omp.c
+	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
+
+# cuda
 KMEANS_cuda: ./source/KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) -o ./bin/$@
 
 KMEANS_cuda_D: ./source/KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) -Xptxas -v -o ./bin/$@ -D DEBUG
 
+# mpi + omp
+KMEANS_mpi+omp: ./source/KMEANS_mpi+omp.c
+	$(MPICC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
+
+KMEANS_mpi+omp_D: ./source/KMEANS_mpi+omp.c
+	$(MPICC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
+
+# utils
 compare: ./source/utils/compare.c
 	$(CC) $(FLAGS) $< -o ./bin/$@
 
