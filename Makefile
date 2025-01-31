@@ -18,6 +18,7 @@ CUDACC=nvcc
 FLAGS=-O3 -Wall
 LIBS=-lm
 ARCH=-arch=sm_50 #cluster: sm_75
+FMAD=-fmad=false
 
 # Targets to build
 OBJS= KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda KMEANS_mpi+omp compare test_generator
@@ -64,10 +65,10 @@ KMEANS_omp_D: ./source/KMEANS_omp.c
 
 # cuda
 KMEANS_cuda: ./source/KMEANS_cuda.cu
-	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) -o ./bin/$@
+	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) $(FMAD) -o ./bin/$@
 
 KMEANS_cuda_D: ./source/KMEANS_cuda.cu
-	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) -Xptxas -v -o ./bin/$@ -D DEBUG
+	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) $(FMAD) -Xptxas -v -o ./bin/$@ -D DEBUG
 
 # mpi + omp
 KMEANS_mpi+omp: ./source/KMEANS_mpi+omp.c
