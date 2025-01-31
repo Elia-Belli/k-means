@@ -286,7 +286,7 @@ int main(int argc, char* argv[])
 
     int changes = 0;
     int it = 1;
-    int i, j, ij, cluster;
+    int i, j, cluster;
     int anotherIteration = 0;
     int auxCentroidsSize = K * samples;
     float_t dist, minDist, maxDist = FLT_MIN;
@@ -300,7 +300,7 @@ int main(int argc, char* argv[])
     memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
     memset(pointsPerClass, 0, K * sizeof(int));
 
-    # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, ij, cluster, dist, minDist)
+    # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, cluster, dist, minDist)
     {
         float* threadAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
         assert(threadAuxCentroids != NULL);
@@ -343,14 +343,18 @@ int main(int argc, char* argv[])
             }
 
             // TODO: Reduce ad albero
-            for (ij = 0; ij < auxCentroidsSize; ij++)
+            for (i = 0; i < auxCentroidsSize; i++)
             {
-                i = ij / samples;
                 # pragma omp atomic
-                auxCentroids[ij] += threadAuxCentroids[ij] / pointsPerClass[i];
-                threadAuxCentroids[ij] = 0.0;
+                auxCentroids[i] += threadAuxCentroids[i];
+                threadAuxCentroids[i] = 0.0;
             }
+            #pragma omp barrier
 
+            # pragma omp for
+            for(i = 0; i < auxCentroidsSize; i++){
+                auxCentroids[i] /= pointsPerClass[i/samples];
+            }
 
             // 3. Get the maximum movement of a centroid compared to its previous position
             # pragma omp barrier
