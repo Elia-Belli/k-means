@@ -302,7 +302,7 @@ int main(int argc, char* argv[])
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
 
-    float_t maxDist, dist, minDist;
+    float_t dist, minDist, maxDist;
     int it = 0, changes = 0;
     int cluster, j;
     int *classMap;
@@ -452,7 +452,7 @@ int main(int argc, char* argv[])
         }
 
         MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
-        MPI_Wait(&req, MPI_STATUS_IGNORE);
+        MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
         
         for (i = 0; i < centroidOffset; i++)
         {   
@@ -465,8 +465,8 @@ int main(int argc, char* argv[])
         // no need for barrier, the rank will work only on the auxCentroids he computed
         // so they will necessarily be ready
         MPI_CHECK_RETURN(MPI_Iallgatherv(
-        auxCentroids + startCentroid * samples, centroidsPerProcess[rank], MPI_FLOAT,
-        auxCentroids2, centroidsPerProcess, centroidsDispls,
+            auxCentroids + startCentroid * samples, centroidsPerProcess[rank], MPI_FLOAT,
+            auxCentroids2, centroidsPerProcess, centroidsDispls,
         MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
 
         // 3. Compute the maximum movement of a centroid compared to its previous position

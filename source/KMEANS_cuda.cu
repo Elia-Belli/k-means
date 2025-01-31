@@ -560,7 +560,7 @@ int main(int argc, char* argv[])
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int endLoop = 1;
-    dim3 gridSize = SMcount, blockSize = maxThreadsPerBlock; // best sizes tried: 2x1024 on MX130
+    dim3 gridSize = SMcount, blockSize = maxThreadsPerBlock/4; 
 
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));      // OK
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_centroids, K*samples*sizeof(float)));     // OK

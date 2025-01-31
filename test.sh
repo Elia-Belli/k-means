@@ -9,21 +9,13 @@ ITER=10
 MIN_CHANGES=0.01
 MAX_DIST=0.01
 
-MPI_EXE=./k-means/bin/KMEANS_mpi
-OMP_EXE=./k-means/bin/KMEANS_omp
-CUDA_EXE=./k-means/bin/KMEANS_cuda
-
 cd k-means
 make compare
 make KMEANS_seq
 make KMEANS_mpi
 make KMEANS_omp
-make KMEANS_cuda
 cd ..
 
-rm "logs/test_mpi.txt"
-rm "logs/test_omp.txt"
-rm "logs/test_cuda.txt"
 
 ./k-means/bin/KMEANS_seq "$INPUT" "$K" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "./k-means/bin/out/seq.txt"
 echo "---------------------------------" >> ./logs/job.out
