@@ -5,8 +5,8 @@ export OMP_NUM_THREADS=12
 
 TESTNUM=1
 INPUT=("${TESTDIR}input2D.inp" "${TESTDIR}input2D2.inp" "${TESTDIR}input10D.inp" "${TESTDIR}input20D.inp" "${TESTDIR}input100D.inp" "${TESTDIR}input100D2.inp")
-K=(32, 8, 16, 64, 128, 256)
-ITER=1000
+K=(100, 8, 16, 64, 128, 256)
+ITER=150
 MIN_CHANGES=0.01
 MAX_DIST=0.01
 
@@ -57,6 +57,22 @@ do
 done
 
 echo "END OMP VERSION TEST"
+
+make KMEANS_cuda
+
+echo "START CUDA VERSION TEST"
+
+for ((i=0; i < TESTNUM; i++));
+do
+  for ((j=0; j < 6; j++));
+  do
+    echo "--------------CUDA TEST: ${j}---------------"
+    ./bin/KMEANS_cuda "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_cuda_${j}.txt"
+    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_cuda_${j}.txt"
+  done
+done
+
+echo "END CUDA VERSION TEST"
 
 make KMEANS_mpi+omp
 

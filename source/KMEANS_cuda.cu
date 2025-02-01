@@ -187,9 +187,16 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
     __syncthreads();
 
     // Sum localPointPerClass in global pointsPerClass
-    for(i = locID; i < K; i += blockDim.x)
+    // for(i = locID; i < K; i += blockDim.x)
+    // {
+    //     atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
+    // }
+
+    for(i = 1; i < blockDim.x; i*=2)
     {
-        atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
+        __syncthreads();
+        if(locID % (2*i) == 0)
+            pointsPerClass[locID] += localPointsPerClass[locID+i];
     }
 }
 
