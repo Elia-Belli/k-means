@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
     char line[100];
 
     float_t dist, minDist, maxDist;
-    int it = 0, changes = 0;
+    int it = 1, changes = 0, anotherIteration = 0;
     int cluster, j;
     int *classMap;
 
@@ -413,10 +413,7 @@ int main(int argc, char* argv[])
 
     do
     {
-        it++;
-
         // 1. Assign each point to a class and count the elements in each class
-        changes = 0;
         for (i = 0; i < lineOffset; i++)
         {
             cluster = 1, minDist = FLT_MAX;
@@ -462,6 +459,7 @@ int main(int argc, char* argv[])
                 auxCentroids[cluster * samples + j] /= pointsPerClass[cluster];
             }
         }
+
         // no need for barrier, the rank will work only on the auxCentroids he computed
         // so they will necessarily be ready
         MPI_CHECK_RETURN(MPI_Iallgatherv(
@@ -470,7 +468,6 @@ int main(int argc, char* argv[])
         MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
 
         // 3. Compute the maximum movement of a centroid compared to its previous position
-        maxDist = FLT_MIN;
         for (i = 0; i < centroidOffset; i++)
         {
             dist = euclideanDistance(
@@ -488,24 +485,29 @@ int main(int argc, char* argv[])
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
 
-        // 4. Re-initialize all the variables for the next iteration
         memset(pointsPerClass, 0, K * sizeof(int));
         memset(auxCentroids, 0.0, K * samples * sizeof(float));
-        MPI_CHECK_RETURN(MPI_Wait(&reqs[2], MPI_STATUS_IGNORE));    // wait for IallGatherv to finish
-        memcpy(centroids, auxCentroids2, K*samples*sizeof(float));  // then copy the new centroids
 
         MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
 
         #ifdef DEBUG
-        if(rank == 0)
-        {
-            sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-            outputMsg = strcat(outputMsg, line);
-        }
+            if(rank == 0)
+            {
+                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                outputMsg = strcat(outputMsg, line);
+            }
         #endif
 
+        anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
+        changes = 0;
+        maxDist = FLT_MIN;
+
+        if (anotherIteration) it++;
+
+        MPI_CHECK_RETURN(MPI_Wait(&reqs[2], MPI_STATUS_IGNORE));
+        memcpy(centroids, auxCentroids2, K*samples*sizeof(float));
     }
-    while ((changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold));
+    while (anotherIteration);
 
     // 5. Gather to the root process all the information that will be written in the output file
     MPI_CHECK_RETURN(MPI_Igatherv(

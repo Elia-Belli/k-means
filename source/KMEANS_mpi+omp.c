@@ -479,8 +479,13 @@ int main(int argc, char* argv[])
             }
 
             #pragma omp for
-            for(i = 0; i < K*samples; i++){
-                auxCentroids[i] /= pointsPerClass[i/samples];
+            for (i = 0; i < centroidOffset; i++)
+            {
+                cluster = startCentroid + i;
+                for (j = 0; j < samples; j++)
+                {
+                    auxCentroids[cluster * samples + j] /= pointsPerClass[cluster];
+                }
             }
 
             // no need for barrier, the rank will work only on the auxCentroids he computed
