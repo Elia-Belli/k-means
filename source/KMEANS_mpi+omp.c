@@ -309,7 +309,7 @@ int main(int argc, char* argv[])
     float_t dist, minDist, maxDist;
     int it = 1, changes = 0, anotherIteration = 0;
     int cluster, j;
-    int* classMap;
+    int* classMap = NULL;
 
     //pointPerClass: number of points classified in each class
     //auxCentroids: mean of the points in each class
@@ -322,7 +322,7 @@ int main(int argc, char* argv[])
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-    int *linesPerProcess, *displacementPerProcess;
+    int *linesPerProcess = NULL, *displacementPerProcess = NULL;
     int *centroidsPerProcess, *centroidsDispls;
     int workPerProcess = (lines / size), workReminder = (lines % size);
     int processCentroids = (K / size), centroidsReminder = (K % size);

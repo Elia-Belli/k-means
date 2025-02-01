@@ -1,0 +1,15 @@
+universe = vanilla
+
+# Where should the output/error be saved
+log = logs/job.log
+output = logs/job.out
+error = logs/job.err
+
+# Request GPU resources
+request_cpus = 32
+request_gpus = 1
+
+# Specify any environment setup if needed
+getenv = True
+
+queue

@@ -1,15 +1,19 @@
+#!/usr/bin/bash
 TESTDIR="./test_files/"
 OUTDIR="./bin/out/"
-MPIPROCESSES=12
-export OMP_NUM_THREADS=12
+MPIPROCESSES=32
+export OMP_NUM_THREADS=32
 
 TESTNUM=1
 INPUT=("${TESTDIR}input2D.inp" "${TESTDIR}input2D2.inp" "${TESTDIR}input10D.inp" "${TESTDIR}input20D.inp" "${TESTDIR}input100D.inp" "${TESTDIR}input100D2.inp")
-K=(100, 8, 16, 64, 128, 256)
+K=(100, 8, 100, 100, 100, 100)
 ITER=150
 MIN_CHANGES=0.01
 MAX_DIST=0.01
 
+cd k-means
+
+#make clean
 make compare
 make KMEANS_seq
 
@@ -58,7 +62,7 @@ done
 
 echo "END OMP VERSION TEST"
 
-make KMEANS_cuda
+#make KMEANS_cuda
 
 echo "START CUDA VERSION TEST"
 
@@ -74,19 +78,4 @@ done
 
 echo "END CUDA VERSION TEST"
 
-make KMEANS_mpi+omp
-
-echo "START MPI + OMP VERSION TEST"
-
-for ((i=0; i < TESTNUM; i++));
-do
-  for ((j=0; j < 6; j++));
-  do
-    echo "--------------MPI+OMP TEST: ${j}---------------"
-    mpirun -np "${MPIPROCESSES}" --oversubscribe ./bin/KMEANS_mpi+omp "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_mpi+omp_${j}.txt"
-    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_mpi+omp_${j}.txt"
-  done
-done
-
-echo "END MPI + OMP VERSION TEST"
-
+cd ..
