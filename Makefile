@@ -21,7 +21,7 @@ ARCH=-arch=sm_50 #cluster: sm_75
 FMAD=-fmad=false
 
 # Targets to build
-OBJS= KMEANS_seq KMEANS_omp KMEANS_mpi KMEANS_cuda KMEANS_mpi+omp compare test_generator
+OBJS= ./bin/KMEANS_seq_D ./bin/KMEANS_omp ./bin/KMEANS_mpi ./bin/KMEANS_cuda ./bin/KMEANS_mpi+omp_D ./bin/compare test_generator
 
 # Rules. By default show help
 help:

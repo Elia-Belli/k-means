@@ -22,7 +22,7 @@
 #include <string.h>
 #include <float.h>
 #include <mpi.h>
-#include <assert.h>
+#include <omp.h>
 
 #define MAXLINE 2000
 #define MAXCAD 200
@@ -40,7 +40,7 @@
         MPI_Abort( MPI_COMM_WORLD, EXIT_FAILURE );                              \
     }       \
 }
-/* 
+/*
 Function showFileError: It displays the corresponding error during file reading.
 */
 void showFileError(int error, char* filename)
@@ -192,9 +192,8 @@ float_t euclideanDistance(const float* point, const float* center, const int sam
 int main(int argc, char* argv[])
 {
     /* 0. Initialize MPI */
-    int provided;
+    int rank, size, provided;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_SERIALIZED, &provided);
-    int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_set_errhandler(MPI_COMM_WORLD, MPI_ERRORS_RETURN);
@@ -304,27 +303,56 @@ int main(int argc, char* argv[])
     char* outputMsg = (char*)calloc(10000, sizeof(char));
     char line[100];
 
-    int j, it = 1;
-    int changes = 0;
-    int anotherIteration = 1;
-    float_t dist, minDist, maxDist = FLT_MIN;
+    const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
+    const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
 
+    float_t dist, minDist, maxDist;
+    int it = 1, changes = 0, anotherIteration = 0;
+    int cluster, j;
+    int* classMap;
 
     //pointPerClass: number of points classified in each class
     //auxCentroids: mean of the points in each class
-    int* pointsPerClass = (int*) calloc(K , sizeof(int));
-    float* auxCentroids = (float*) calloc(K * samples, sizeof(float));
-    if (pointsPerClass == NULL || auxCentroids == NULL)
+    int* pointsPerClass = (int*)calloc(K, sizeof(int));
+    float* auxCentroids = (float*)calloc(K * samples, sizeof(float));
+    float* auxCentroids2 = (float*)calloc(K * samples, sizeof(float));
+    if (pointsPerClass == NULL || auxCentroids == NULL || auxCentroids2 == NULL)
     {
         fprintf(stderr, "Memory allocation error.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-    int* linesPerProcess = NULL, *displacementPerProcess = NULL;
-    int* classMap = NULL;
+    int *linesPerProcess, *displacementPerProcess;
+    int *centroidsPerProcess, *centroidsDispls;
     int workPerProcess = (lines / size), workReminder = (lines % size);
-    int centroidsPerProcess = (K / size), centroidsReminder = (K % size);
+    int processCentroids = (K / size), centroidsReminder = (K % size);
 
+    // Compute data for MPI_Allgatherv on auxCentroids -> auxCentroids2
+    centroidsPerProcess = calloc(size, sizeof(int));
+    centroidsDispls = calloc(size, sizeof(int));
+    if (centroidsPerProcess == NULL || centroidsDispls == NULL)
+    {
+        fprintf(stderr, "Memory allocation error.\n");
+        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    }
+    for (i = 0; i < size; i++)
+    {
+        centroidsDispls[i] = i * processCentroids, centroidsPerProcess[i] = processCentroids;
+        if (i < centroidsReminder)
+        {
+            centroidsDispls[i] += i;
+            centroidsPerProcess[i]++;
+        }
+        else
+        {
+            centroidsDispls[i] += centroidsReminder;
+        }
+
+        centroidsPerProcess[i] *= samples;
+        centroidsDispls[i] *= samples;
+    }
+
+    // Compute data for final MPI_Gatherv on localClassMap -> classMap
     if (rank == 0)
     {
         linesPerProcess = calloc(size, sizeof(int));
@@ -352,11 +380,12 @@ int main(int argc, char* argv[])
         }
     }
 
-    MPI_Request reqs[2], req;
-    int startLine, lineOffset, startCentroid, centroidOffset, cluster;
+    MPI_Request reqs[3], req;
+    int startLine, lineOffset, startCentroid, centroidOffset;
     startLine = rank * workPerProcess, lineOffset = workPerProcess;
-    startCentroid = rank * centroidsPerProcess, centroidOffset = centroidsPerProcess;
+    startCentroid = rank * processCentroids, centroidOffset = processCentroids;
 
+    // Data to split lines between ranks
     if (rank < workReminder)
     {
         startLine += rank;
@@ -366,7 +395,7 @@ int main(int argc, char* argv[])
     {
         startLine += workReminder;
     }
-
+    // Data to split centroids between ranks
     if (rank < centroidsReminder)
     {
         startCentroid += rank;
@@ -377,6 +406,7 @@ int main(int argc, char* argv[])
         startCentroid += centroidsReminder;
     }
 
+    // Each rank will compute only his part of classMap
     int* localClassMap = calloc(sizeof(int), lineOffset);
     if (localClassMap == NULL)
     {
@@ -384,11 +414,14 @@ int main(int argc, char* argv[])
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
-
-    #pragma omp parallel num_threads(2) private(i, j, cluster, dist, minDist)
-    {   
-        float* threadAuxCentroids = calloc(K*samples, sizeof(float));
-        assert(threadAuxCentroids != NULL);
+    # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, cluster, dist, minDist)
+    {
+        float* threadAuxCentroids = calloc(K * samples, sizeof(float));
+        if (threadAuxCentroids == NULL)
+        {
+            fprintf(stderr, "Memory allocation error.\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
 
         do
         {
@@ -415,19 +448,14 @@ int main(int argc, char* argv[])
 
                 pointsPerClass[cluster - 1]++;
             }
-        
 
             // 2. Compute the coordinates mean of all the point in the same class
-            # pragma omp single
-            {
-                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
-                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
-            }
+            #pragma omp single nowait
+            MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
 
-            
-            # pragma omp for
+            #pragma omp for
             for (i = 0; i < lineOffset; i++)
-            {   
+            {
                 cluster = localClassMap[i] - 1;
                 for (j = 0; j < samples; j++)
                 {
@@ -435,27 +463,33 @@ int main(int argc, char* argv[])
                 }
             }
 
-            for (i = 0; i < K*samples; i++)
-            {   
-                # pragma omp atomic
+            for (i = 0; i < K * samples; i++)
+            {
+                #pragma omp atomic
                 auxCentroids[i] += threadAuxCentroids[i];
                 threadAuxCentroids[i] = 0.0;
             }
+            #pragma omp barrier
 
-            # pragma omp barrier
-            # pragma omp single
-            MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));      
-
-            
-            # pragma omp for
-            for(i = 0; i < K*samples; i++)
+            #pragma omp single
             {
+                MPI_CHECK_RETURN(
+                    MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+                MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
+            }
+
+            #pragma omp for
+            for(i = 0; i < K*samples; i++){
                 auxCentroids[i] /= pointsPerClass[i/samples];
             }
 
-            
-            # pragma omp single
-            MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+            // no need for barrier, the rank will work only on the auxCentroids he computed
+            // so they will necessarily be ready
+            #pragma omp single nowait
+            MPI_CHECK_RETURN(MPI_Iallgatherv(
+                auxCentroids + startCentroid * samples, centroidsPerProcess[rank], MPI_FLOAT,
+                auxCentroids2, centroidsPerProcess, centroidsDispls,
+                MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
 
             // 3. Compute the maximum movement of a centroid compared to its previous position
             # pragma omp for reduction(max:maxDist)
@@ -468,39 +502,46 @@ int main(int argc, char* argv[])
                 );
 
                 if (dist > maxDist)
-                {   
+                {
                     maxDist = dist;
                 }
-                pointsPerClass[i] = 0;
             }
 
-            # pragma omp single
+            #pragma omp single
             {
-                MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
+                MPI_CHECK_RETURN(
+                    MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0])
+                );
+                MPI_CHECK_RETURN(
+                    MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1])
+                );
 
-                // 4. Re-initialize all the variables for the next iteration
-                memcpy(centroids, auxCentroids, (K * samples * sizeof(float)));
+                memset(pointsPerClass, 0, K * sizeof(int));
                 memset(auxCentroids, 0.0, K * samples * sizeof(float));
 
                 MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
-                
+
                 #ifdef DEBUG
-                sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
-                outputMsg = strcat(outputMsg, line);
+                if(rank == 0)
+                {
+                    sprintf(line, "\n[%d] Cluster changes: %d\tMax. centroid distance: %f", it, changes, maxDist);
+                    outputMsg = strcat(outputMsg, line);
+                }
                 #endif
 
                 anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
+                changes = 0;
+                maxDist = FLT_MIN;
 
-                if (anotherIteration)
-                {
-                    it++;
-                    maxDist = FLT_MIN;
-                    changes = 0;
-                }
+                if (anotherIteration) it++;
 
+                MPI_CHECK_RETURN(MPI_Wait(&reqs[2], MPI_STATUS_IGNORE));
+                memcpy(centroids, auxCentroids2, K * samples * sizeof(float));
             }
+        }
+        while (anotherIteration);
 
-        } while (anotherIteration);
+        free(threadAuxCentroids);
     }
 
     // 5. Gather to the root process all the information that will be written in the output file
@@ -509,7 +550,6 @@ int main(int argc, char* argv[])
         MPI_INT, classMap, linesPerProcess,
         displacementPerProcess, MPI_INT, 0, MPI_COMM_WORLD, &req
     ));
-    
 
     //END CLOCK*****************************************
     end = MPI_Wtime();
@@ -558,6 +598,8 @@ int main(int argc, char* argv[])
     }
 
     //Free memory
+    free(centroidsPerProcess);
+    free(centroidsDispls);
     free(data);
     free(centroidPos);
     free(centroids);
@@ -566,6 +608,7 @@ int main(int argc, char* argv[])
     MPI_Request_free(&req);
     MPI_Request_free(&reqs[0]);
     MPI_Request_free(&reqs[1]);
+    MPI_Request_free(&reqs[2]);
 
     //END CLOCK*****************************************
     end = MPI_Wtime();

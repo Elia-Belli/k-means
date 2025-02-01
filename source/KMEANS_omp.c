@@ -357,7 +357,6 @@ int main(int argc, char* argv[])
             }
 
             // 3. Get the maximum movement of a centroid compared to its previous position
-            # pragma omp barrier
             # pragma omp for reduction(max:maxDist)
             for (i = 0; i < K; i++)
             {
