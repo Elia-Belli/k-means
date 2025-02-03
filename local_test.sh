@@ -1,8 +1,6 @@
 #!/usr/bin/bash
 TESTDIR="./test_files/"
 OUTDIR="./bin/out/"
-MPIPROCESSES=12
-export OMP_NUM_THREADS=12
 
 TESTNUM=1
 INPUT=("${TESTDIR}input2D.inp" "${TESTDIR}input2D2.inp" "${TESTDIR}input10D.inp" "${TESTDIR}input20D.inp" "${TESTDIR}input100D.inp" "${TESTDIR}input100D2.inp")
