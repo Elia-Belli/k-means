@@ -1,5 +1,8 @@
 universe = vanilla
 
+executable = single_lib_tests.sh
+requirements = (Machine != "node126.di.rm1")
+
 # Where should the output/error be saved
 log = logs/single_lib_tests.log
 output = logs/single_lib_tests.out
@@ -11,5 +14,4 @@ request_gpus = 1
 
 # Specify any environment setup if needed
 getenv = True
-
 queue

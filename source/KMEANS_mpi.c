@@ -288,6 +288,7 @@ int main(int argc, char* argv[])
     #endif
 
     //END CLOCK*****************************************
+    #ifdef DEBUG
     end = MPI_Wtime();
     localTime = end - start;
     MPI_Reduce(&localTime, &globalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -296,6 +297,7 @@ int main(int argc, char* argv[])
         printf("\nMemory allocation: %f seconds\n", globalTime);
         fflush(stdout);
     }
+    #endif
     //**************************************************
     //START CLOCK***************************************
     MPI_Barrier(MPI_COMM_WORLD);
@@ -506,9 +508,12 @@ int main(int argc, char* argv[])
     MPI_Reduce(&localTime, &globalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     if (rank == 0)
     {
-        // Print to stdout all the info about this run
+        #ifdef DEBUG
         printf("%s", outputMsg);
         printf("\nComputation: %f seconds", globalTime);
+        #else
+        printf("mpi,%f", globalTime);
+        #endif
         fflush(stdout);
     }
     //**************************************************
@@ -564,6 +569,7 @@ int main(int argc, char* argv[])
     MPI_Request_free(&workSplit[1]);
 
     //END CLOCK*****************************************
+    #ifdef DEBUG
     end = MPI_Wtime();
     localTime = end - start;
     MPI_Reduce(&localTime, &globalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -572,6 +578,7 @@ int main(int argc, char* argv[])
         printf("\n\nMemory deallocation: %f seconds\n", globalTime);
         fflush(stdout);
     }
+    #endif
     //***************************************************/
     MPI_Finalize();
     return 0;

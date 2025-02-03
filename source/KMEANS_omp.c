@@ -272,9 +272,11 @@ int main(int argc, char* argv[])
     #endif
 
     //END CLOCK*****************************************
+    #ifdef DEBUG
     end = omp_get_wtime();
     printf("\nMemory allocation: %f seconds\n", end - start);
     fflush(stdout);
+    #endif
     //**************************************************
     //START CLOCK***************************************
     start = omp_get_wtime();
@@ -353,8 +355,9 @@ int main(int argc, char* argv[])
             #pragma omp barrier
 
             # pragma omp for
-            for(i = 0; i < auxCentroidsSize; i++){
-                auxCentroids[i] /= pointsPerClass[i/samples];
+            for (i = 0; i < auxCentroidsSize; i++)
+            {
+                auxCentroids[i] /= pointsPerClass[i / samples];
             }
 
             // 3. Get the maximum movement of a centroid compared to its previous position
@@ -395,11 +398,15 @@ int main(int argc, char* argv[])
         free(threadAuxCentroids);
     }
     // Output and termination conditions
-    printf("%s", outputMsg);
 
     //END CLOCK*****************************************
     end = omp_get_wtime();
+    #ifdef DEBUG
+    printf("%s", outputMsg);
     printf("\nComputation: %f seconds", end - start);
+    #else
+    printf("omp,%f", end - start);
+    #endif
     fflush(stdout);
     //**************************************************
     //START CLOCK***************************************
@@ -438,9 +445,11 @@ int main(int argc, char* argv[])
     free(auxCentroids);
 
     //END CLOCK*****************************************
+    #ifdef DEBUG
     end = omp_get_wtime();
     printf("\n\nMemory deallocation: %f seconds\n", end - start);
     fflush(stdout);
+    #endif
     //***************************************************/
     return 0;
 }

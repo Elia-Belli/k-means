@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 ##**************************************************************
 ##
@@ -205,7 +205,7 @@ _mpirun_pid=$!
 wait $_mpirun_pid
 _mpirun_exit=$?
 
-cp ./bin/out/KMEANS_mpi+omp_5.txt $HOME/k-means/bin/out
+cp $6 $HOME/k-means/bin/out
 
 ## clean up
 # Wait for orted to finish
