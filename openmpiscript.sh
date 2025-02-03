@@ -205,8 +205,11 @@ _mpirun_pid=$!
 wait $_mpirun_pid
 _mpirun_exit=$?
 
+cp ./bin/out/KMEANS_mpi+omp_5.txt $HOME/k-means/bin/out
+
 ## clean up
 # Wait for orted to finish
 wait $_orted_launcher_pid
 rm $HOSTFILE
 exit $_mpirun_exit
+
