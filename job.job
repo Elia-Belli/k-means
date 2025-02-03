@@ -2,11 +2,11 @@ universe = parallel
 
 executable = openmpiscript.sh
 
-arguments = bin/KMEANS_mpi+omp "./test_files/input100D2.inp" 100 150 0.01 0.01 "./bin/out/KMEANS_mpi+omp_5"
+arguments = ./bin/KMEANS_mpi+omp ./test_files/input100D2.inp 100 150 0.01 0.01 ./bin/out/KMEANS_mpi+omp_5.txt
 
 should_transfer_files = YES
 
-transfer_input_files = bin/KMEANS_mpi+omp
+transfer_input_files = .
 
 when_to_transfer_output = on_exit_or_evict
 
