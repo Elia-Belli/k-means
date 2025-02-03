@@ -313,77 +313,27 @@ int main(int argc, char* argv[])
 
     //pointPerClass: number of points classified in each class
     //auxCentroids: mean of the points in each class
+    int* centroidsPerProcess = calloc(size, sizeof(int));
+    int* centroidsDispls = calloc(size, sizeof(int));
     int* pointsPerClass = (int*)calloc(K, sizeof(int));
     float* auxCentroids = (float*)calloc(K * samples, sizeof(float));
     float* auxCentroids2 = (float*)calloc(K * samples, sizeof(float));
-    if (pointsPerClass == NULL || auxCentroids == NULL || auxCentroids2 == NULL)
+    if (pointsPerClass == NULL || auxCentroids == NULL || auxCentroids2 == NULL || centroidsPerProcess == NULL ||
+        centroidsDispls == NULL)
     {
         fprintf(stderr, "Memory allocation error.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
 
+    MPI_Request reqs[3], req, workSplit[2];
     int *linesPerProcess = NULL, *displacementPerProcess = NULL;
-    int *centroidsPerProcess, *centroidsDispls;
     int workPerProcess = (lines / size), workReminder = (lines % size);
     int processCentroids = (K / size), centroidsReminder = (K % size);
-
-    // Compute data for MPI_Allgatherv on auxCentroids -> auxCentroids2
-    centroidsPerProcess = calloc(size, sizeof(int));
-    centroidsDispls = calloc(size, sizeof(int));
-    if (centroidsPerProcess == NULL || centroidsDispls == NULL)
-    {
-        fprintf(stderr, "Memory allocation error.\n");
-        MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-    }
-    for (i = 0; i < size; i++)
-    {
-        centroidsDispls[i] = i * processCentroids, centroidsPerProcess[i] = processCentroids;
-        if (i < centroidsReminder)
-        {
-            centroidsDispls[i] += i;
-            centroidsPerProcess[i]++;
-        }
-        else
-        {
-            centroidsDispls[i] += centroidsReminder;
-        }
-
-        centroidsPerProcess[i] *= samples;
-        centroidsDispls[i] *= samples;
-    }
-
-    // Compute data for final MPI_Gatherv on localClassMap -> classMap
-    if (rank == 0)
-    {
-        linesPerProcess = calloc(size, sizeof(int));
-        displacementPerProcess = calloc(size, sizeof(int));
-        classMap = calloc(lines, sizeof(int));
-
-        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL)
-        {
-            fprintf(stderr, "Memory allocation error.\n");
-            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-        }
-
-        for (i = 0; i < size; i++)
-        {
-            displacementPerProcess[i] = i * workPerProcess, linesPerProcess[i] = workPerProcess;
-            if (i < workReminder)
-            {
-                displacementPerProcess[i] += i;
-                linesPerProcess[i]++;
-            }
-            else
-            {
-                displacementPerProcess[i] += workReminder;
-            }
-        }
-    }
-
-    MPI_Request reqs[3], req;
-    int startLine, lineOffset, startCentroid, centroidOffset;
-    startLine = rank * workPerProcess, lineOffset = workPerProcess;
-    startCentroid = rank * processCentroids, centroidOffset = processCentroids;
+    int startCentroidPerSamples, centroidOffsetPerSamples;
+    int startLine = rank * workPerProcess;
+    int lineOffset = workPerProcess;
+    int startCentroid = rank * processCentroids;
+    int centroidOffset = processCentroids;
 
     // Data to split lines between ranks
     if (rank < workReminder)
@@ -395,6 +345,7 @@ int main(int argc, char* argv[])
     {
         startLine += workReminder;
     }
+
     // Data to split centroids between ranks
     if (rank < centroidsReminder)
     {
@@ -406,6 +357,36 @@ int main(int argc, char* argv[])
         startCentroid += centroidsReminder;
     }
 
+    startCentroidPerSamples = startCentroid * samples;
+    centroidOffsetPerSamples = centroidOffset * samples;
+
+    MPI_CHECK_RETURN(
+        MPI_Iallgather(&startCentroidPerSamples, 1, MPI_INT, centroidsDispls, 1, MPI_INT, MPI_COMM_WORLD, &reqs[0])
+    )
+    MPI_CHECK_RETURN(
+        MPI_Iallgather(&centroidOffsetPerSamples, 1, MPI_INT, centroidsPerProcess, 1, MPI_INT, MPI_COMM_WORLD, &reqs[1])
+    )
+
+    if (rank == 0)
+    {
+        linesPerProcess = calloc(size, sizeof(int));
+        displacementPerProcess = calloc(size, sizeof(int));
+        classMap = calloc(lines, sizeof(int));
+
+        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL)
+        {
+            fprintf(stderr, "Memory allocation error.\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+    }
+
+    MPI_CHECK_RETURN(
+        MPI_Igather(&startLine, 1, MPI_INT, displacementPerProcess, 1, MPI_INT, 0, MPI_COMM_WORLD, &workSplit[0])
+    )
+    MPI_CHECK_RETURN(
+        MPI_Igather(&lineOffset, 1, MPI_INT, linesPerProcess, 1, MPI_INT, 0, MPI_COMM_WORLD, &workSplit[1])
+    )
+
     // Each rank will compute only his part of classMap
     int* localClassMap = calloc(sizeof(int), lineOffset);
     if (localClassMap == NULL)
@@ -413,6 +394,8 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Memory allocation error.\n");
         MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
     }
+
+    MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
 
     # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, cluster, dist, minDist)
     {
@@ -492,7 +475,7 @@ int main(int argc, char* argv[])
             // so they will necessarily be ready
             #pragma omp single nowait
             MPI_CHECK_RETURN(MPI_Iallgatherv(
-                auxCentroids + startCentroid * samples, centroidsPerProcess[rank], MPI_FLOAT,
+                auxCentroids + startCentroid * samples, centroidOffsetPerSamples, MPI_FLOAT,
                 auxCentroids2, centroidsPerProcess, centroidsDispls,
                 MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
 
@@ -550,6 +533,7 @@ int main(int argc, char* argv[])
     }
 
     // 5. Gather to the root process all the information that will be written in the output file
+    MPI_CHECK_RETURN(MPI_Waitall(2, workSplit, MPI_STATUS_IGNORE));
     MPI_CHECK_RETURN(MPI_Igatherv(
         localClassMap, lineOffset,
         MPI_INT, classMap, linesPerProcess,

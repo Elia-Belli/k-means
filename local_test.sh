@@ -17,58 +17,65 @@ make KMEANS_seq
 make KMEANS_mpi
 make KMEANS_omp
 make KMEANS_cuda
+make KMEANS_mpi+omp
 
 echo "START SEQUENTIAL VERSION TEST"
 
 for ((i=0; i < TESTNUM; i++));
-do
+  do
+    touch "./bin/out/result_run_${i}.txt" 
+    
+    for ((j=0; j < 6; j++));
+    do
+      echo "--------------SEQ TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/KMEANS_seq "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_seq_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+    done
+
+    echo "END SEQUENTIAL VERSION TEST"
+
+    echo "START MPI VERSION TEST"
+
+    for ((j=0; j < 6; j++));
+    do
+      echo "--------------MPI TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
+      mpirun -np "${MPIPROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_mpi_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_mpi_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+    done
+
+    echo "END MPI VERSION TEST"
+
+    echo "START OMP VERSION TEST"
+
+    for ((j=0; j < 6; j++));
+    do
+      echo "--------------OMP TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/KMEANS_omp "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+    done
+
+    echo "END OMP VERSION TEST"
+
+    echo "START CUDA VERSION TEST"
+
+    for ((j=0; j < 6; j++));
+    do
+      echo "--------------CUDA TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/KMEANS_cuda "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_cuda_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+      ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_cuda_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+    done
+
+  echo "END CUDA VERSION TEST"
+
+  echo "START MPI+OMP VERSION TEST"
+
+  MPIPROCESSES=3
+  export OMP_NUM_THREADS=4
   for ((j=0; j < 6; j++));
   do
-    echo "--------------SEQ TEST: ${j}---------------"
-    ./bin/KMEANS_seq "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_seq_${j}.txt"
+    echo "--------------MPI+OMP TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
+    mpirun -np "${MPIPROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_mpi+omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
+    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_mpi+omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
   done
 done
 
-echo "END SEQUENTIAL VERSION TEST"
-
-echo "START MPI VERSION TEST"
-
-for ((i=0; i < TESTNUM; i++));
-do
-  for ((j=0; j < 6; j++));
-  do
-    echo "--------------MPI TEST: ${j}---------------"
-    mpirun -np "${MPIPROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_mpi_${j}.txt"
-    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_mpi_${j}.txt"
-  done
-done
-
-echo "END MPI VERSION TEST"
-
-echo "START OMP VERSION TEST"
-
-for ((i=0; i < TESTNUM; i++));
-do
-  for ((j=0; j < 6; j++));
-  do
-    echo "--------------OMP TEST: ${j}---------------"
-    ./bin/KMEANS_omp "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_omp_${j}.txt"
-    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_omp_${j}.txt"
-  done
-done
-
-echo "END OMP VERSION TEST"
-
-echo "START CUDA VERSION TEST"
-
-for ((i=0; i < TESTNUM; i++));
-do
-  for ((j=0; j < 6; j++));
-  do
-    echo "--------------CUDA TEST: ${j}---------------"
-    ./bin/KMEANS_cuda "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_cuda_${j}.txt"
-    ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_cuda_${j}.txt"
-  done
-done
-
-echo "END CUDA VERSION TEST"
+echo "END MPI+OMP VERSION TEST"
