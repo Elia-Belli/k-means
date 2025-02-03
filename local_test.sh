@@ -23,6 +23,8 @@ echo "START SEQUENTIAL VERSION TEST"
 
 for ((i=0; i < TESTNUM; i++));
   do
+    MPIPROCESSES=12
+    export OMP_NUM_THREADS=12
     touch "./bin/out/result_run_${i}.txt" 
     
     for ((j=0; j < 6; j++));
