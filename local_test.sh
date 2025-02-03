@@ -17,21 +17,19 @@ make KMEANS_omp
 make KMEANS_cuda
 make KMEANS_mpi+omp
 
-echo "START SEQUENTIAL VERSION TEST"
+echo "START SEQUENTIAL PROGRAM"
+for ((j=0; j < 6; j++));
+do
+  echo "--------------SEQ TEST: ${j}---------------"
+  ./bin/KMEANS_seq "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_seq_${j}.txt"
+done
+echo "END SEQUENTIAL SECTION"
 
 for ((i=0; i < TESTNUM; i++));
   do
     MPIPROCESSES=12
     export OMP_NUM_THREADS=12
-    touch "./bin/out/result_run_${i}.txt" 
-    
-    for ((j=0; j < 6; j++));
-    do
-      echo "--------------SEQ TEST: ${j}---------------" >> "./bin/out/result_run_${i}.txt" 
-      ./bin/KMEANS_seq "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_seq_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
-    done
-
-    echo "END SEQUENTIAL VERSION TEST"
+    touch "./bin/out/result_run_${i}.txt"
 
     echo "START MPI VERSION TEST"
 
@@ -76,6 +74,6 @@ for ((i=0; i < TESTNUM; i++));
     mpirun -np "${MPIPROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUTDIR}KMEANS_mpi+omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
     ./bin/compare "${OUTDIR}KMEANS_seq_${j}.txt" "${OUTDIR}KMEANS_mpi+omp_${j}.txt" >> "./bin/out/result_run_${i}.txt" 
   done
+  echo "END MPI+OMP VERSION TEST"
 done
-
-echo "END MPI+OMP VERSION TEST"
+echo "TEST ENDED"
