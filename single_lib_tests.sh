@@ -32,14 +32,14 @@ for ((i=0; i < TEST_RUN; i++));
 
     echo "[${i}] Running Cuda version"
 
-    for ((j=0; j < INPUT_NUM; j++));
-    do
-      echo "[CUDA] Running test ${j}"
-      {\
-        ./bin/KMEANS_cuda "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_cuda_${j}.txt"; \
-        printf ","; \
-        ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_cuda_${j}.txt" >> "${TEST_RESULTS}input_${j}.txt"
-      } >> "${TEST_RESULTS}input_${j}.txt"
-    done
-    echo "[${i}] Cuda runs completed"
+#    for ((j=0; j < INPUT_NUM; j++));
+#    do
+#      echo "[CUDA] Running test ${j}"
+#      {\
+#        ./bin/KMEANS_cuda "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_cuda_${j}.txt"; \
+#        printf ","; \
+#        ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_cuda_${j}.txt" >> "${TEST_RESULTS}input_${j}.txt"
+#      } >> "${TEST_RESULTS}input_${j}.txt"
+#    done
+#    echo "[${i}] Cuda runs completed"
 done

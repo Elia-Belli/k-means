@@ -14,12 +14,15 @@ fi
 make all
 make compare
 
+rm -r ${TEST_RESULTS}input_*
+
 echo "CREATING TEST RESULTS FILES"
 for ((i=0; i < INPUT_NUM; i++));
 do
-  rm -r "${TEST_RESULTS}input_${i}.txt" 2>"/dev/null"
   touch "${TEST_RESULTS}input_${i}.txt"
-  echo "${INPUT[i]} ${K[i]} ${ITER} ${MIN_CHANGES} ${MAX_DIST}" >> "${TEST_RESULTS}input_${i}.txt"
+  printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >> "${TEST_RESULTS}input_${i}.txt"
+  touch "${TEST_RESULTS}input_${i}_parallel.txt"
+  printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >> "${TEST_RESULTS}input_${i}_parallel.txt"
 done
 echo "ALL RESULTS FILES ARE CREATED"
 
