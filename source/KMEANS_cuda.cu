@@ -80,11 +80,15 @@ __global__ void kmeansMapClassOptimized(float *data, float *centroids, int *clas
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int locID = threadIdx.x;
-    int gridSize = gridDim.x * blockDim.x;  // total threads
+    int i;
+
     extern __shared__ int shared[];  
     int* localPointsPerClass = (int*) &shared[0];
-    float* localCentroids = (float*) &shared[K]; 
-    int i, j;
+    int* localChanges = (int*) &shared[K];
+    float* localCentroids = (float*) &shared[K+1]; 
+
+    float minDist = FLT_MAX, dist;
+    int cluster = 1;
 
     // Init shared pointsPerClass
     for(i = locID; i < K; i += blockDim.x)
@@ -98,38 +102,36 @@ __global__ void kmeansMapClassOptimized(float *data, float *centroids, int *clas
         localCentroids[i] = centroids[i];
     }
 
+    if(locID == 0) localChanges[0] = 0;
+
     __syncthreads();
 
-    float minDist, dist;
-    int cluster, localChanges = 0;
-    for(i = globID; i < lines; i+= gridSize)
-    {   
-        minDist = FLT_MAX;
-        cluster = 1;
-        for(j = 0; j < K; j++)
+    if(globID < lines)
+    {
+        for(i = 0; i < K; i++)
         {
-            dist = euclideanDistance(&data[i * samples], &localCentroids[j * samples], samples);
+            dist = euclideanDistance(&data[globID * samples], &localCentroids[i * samples], samples);
 
             if(dist < minDist)
             {
                 minDist = dist;
-                cluster = j+1;
+                cluster = i+1;
             }
         }
 
-        if(classMap[i] != cluster)
+        if(classMap[globID] != cluster)
         {
-            localChanges++;
-            classMap[i] = cluster;
+            atomicAdd(localChanges, 1);
+            classMap[globID] = cluster;
         }
 
         atomicAdd(&localPointsPerClass[cluster-1], 1);
 
     }
 
-    atomicAdd(changes, localChanges);
-
     __syncthreads();
+
+    atomicAdd(changes, *localChanges);
 
     // Sum localPointPerClass in global pointsPerClass
     for(i = locID; i < K; i += blockDim.x)
@@ -143,9 +145,14 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int locID = threadIdx.x;
-    int gridSize = gridDim.x * blockDim.x;  // total threads
-    extern __shared__ int localPointsPerClass[];  // local accumulator
-    int i, j;
+
+    extern __shared__ int shared[];
+    int *localPointsPerClass = (int*) &shared[0];
+    int *localChanges = (int*) &shared[K];
+    float *centroid = (float*) &shared[K+1];
+
+    float minDist = FLT_MAX, dist;
+    int i, j, cluster = 1;
 
     // Init shared pointsPerClass
     for(i = locID; i < K; i += blockDim.x)
@@ -153,50 +160,57 @@ __global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int
         localPointsPerClass[i] = 0;
     }
 
-    __syncthreads();
+    if(locID == 0) 
+    {
+        *localChanges = 0;
+    }
 
-    float minDist, dist;
-    int cluster, localChanges = 0;
-    for(i = globID; i < lines; i+= gridSize)
+    
+    for(i = 0; i < K; i++)
     {   
-        minDist = FLT_MAX;
-        cluster = 1;
-        for(j = 0; j < K; j++)
+        
+        for(j = locID; j < samples; j+=blockDim.x)
         {
-            dist = euclideanDistance(&data[i * samples], &centroids[j * samples], samples);
+            centroid[j] = centroids[i*samples + j];
+        }
+        __syncthreads();
+
+        if(globID < lines)
+        {
+            dist = euclideanDistance(&data[globID * samples], &centroids[i * samples], samples);
 
             if(dist < minDist)
             {
                 minDist = dist;
-                cluster = j+1;
+                cluster = i+1;
             }
         }
+        __syncthreads();
 
-        if(classMap[i] != cluster)
+    }
+
+    if(globID < lines)
+    {
+        if(classMap[globID] != cluster)
         {
-            localChanges++;
-            classMap[i] = cluster;
+            atomicAdd(localChanges, 1);
+            classMap[globID] = cluster;
         }
 
         atomicAdd(&localPointsPerClass[cluster-1], 1);
 
     }
 
-    atomicAdd(changes, localChanges);
-
     __syncthreads();
 
-    // Sum localPointPerClass in global pointsPerClass
-    // for(i = locID; i < K; i += blockDim.x)
-    // {
-    //     atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
-    // }
-
-    for(i = 1; i < blockDim.x; i*=2)
+    if(locID == 0)
     {
-        __syncthreads();
-        if(locID % (2*i) == 0)
-            pointsPerClass[locID] += localPointsPerClass[locID+i];
+        atomicAdd(changes, *localChanges);
+    }
+
+    for(i = locID; i < K; i+=blockDim.x)
+    {
+        atomicAdd(&pointsPerClass[i], localPointsPerClass[i]);
     }
 }
 
@@ -239,11 +253,15 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
 {   
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int gridSize = gridDim.x * blockDim.x;
+
     __shared__ float localMaxDist;
+    
     int i;
     float dist;
 
-    if(globID == 0) localMaxDist = 0;
+    if(globID == 0) 
+        localMaxDist = 0;
+
     __syncthreads();
 
     for(i = globID; i < K; i += gridSize)
@@ -253,7 +271,8 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
     }
 
     __syncthreads();
-    if(globID == 0) atomicMax(maxDist, localMaxDist);
+    if(globID == 0) 
+        atomicMax(maxDist, localMaxDist);
     
 }
 
@@ -561,29 +580,31 @@ int main(int argc, char* argv[])
     size_t sharedOptimizationSize, maxSharedMem, sharedMemMapClass;
     getDeviceProperties(0, &SMcount, &maxThreadsPerBlock, &maxSharedMem);
 
-    sharedOptimizationSize = K*sizeof(int) + K* samples * sizeof(float);
-    sharedMemMapClass = (sharedOptimizationSize < maxSharedMem) ? sharedOptimizationSize : (K*sizeof(int));
+    sharedOptimizationSize = (K+1)*sizeof(int) + (K*samples) * sizeof(float);
+    sharedMemMapClass = (sharedOptimizationSize < maxSharedMem) ? sharedOptimizationSize : ((K+1+samples)*sizeof(int));
 
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
-    int endLoop = 1;
-    dim3 gridSize = SMcount, blockSize = maxThreadsPerBlock/4; 
+    int anotherIteration = 1;
+    dim3 gridSize = lines/128 +1, blockSize = 128; 
 
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));      // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_centroids, K*samples*sizeof(float)));     // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_auxCentroids, K*samples*sizeof(float)));  // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_classMap, lines*sizeof(int)));    // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_pointPerClass, K*sizeof(int)));    // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_maxDist, sizeof(float))); // OK
-    CHECK_CUDA_CALL(cudaMalloc((void**) &d_changes, sizeof(int)));   // OK
+    // Allocation of GPU data structures
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));  
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_centroids, K*samples*sizeof(float)));     
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_auxCentroids, K*samples*sizeof(float)));  
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_classMap, lines*sizeof(int)));    
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_pointPerClass, K*sizeof(int)));    
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_maxDist, sizeof(float))); 
+    CHECK_CUDA_CALL(cudaMalloc((void**) &d_changes, sizeof(int)));   
 
-    // Send data and centroids to GPU
+    // Send data and initial centroids to GPU
     CHECK_CUDA_CALL(cudaMemcpy(d_data, data, lines*samples*sizeof(float), cudaMemcpyHostToDevice));
     CHECK_CUDA_CALL(cudaMemcpy(d_centroids, centroids, K*samples*sizeof(float), cudaMemcpyHostToDevice));
     // Initialize ClassMap on GPU
     CHECK_CUDA_CALL(cudaMemset(d_classMap, 0, lines*sizeof(int)));
     
-    void* argsMap[] = {&d_data, &d_centroids, &d_classMap, &d_pointPerClass, &d_changes, &lines, &samples, &K};
+    // Kernel Arguments
+    void* argsMapClass[] = {&d_data, &d_centroids, &d_classMap, &d_pointPerClass, &d_changes, &lines, &samples, &K};
     void* argsCentroidsSum[] = {&d_data, &d_auxCentroids, &d_pointPerClass, &d_classMap, &lines, &samples, &K};
     void* argsCentroidsDiv[] = {&d_auxCentroids, &d_pointPerClass, &samples, &K};
     void* argsMaxDist[] = {&d_auxCentroids, &d_centroids, &d_pointPerClass, &d_maxDist, &samples, &K};
@@ -596,19 +617,23 @@ int main(int argc, char* argv[])
         CHECK_CUDA_CALL(cudaMemset(d_pointPerClass, 0, K*sizeof(int)));
 
         // Kernerls
-        if(sharedOptimizationSize < maxSharedMem){
-            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClassOptimized, gridSize, blockSize, argsMap, sharedOptimizationSize, NULL));
-        }else{
-            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMap, sharedMemMapClass, NULL));
+        if(sharedOptimizationSize < maxSharedMem)
+        {
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClassOptimized, gridSize, blockSize, argsMapClass, sharedOptimizationSize, NULL));
+        }else
+        {
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMapClass, sharedMemMapClass, NULL));
         }
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
+
         CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsSum, gridSize, blockSize, argsCentroidsSum, 0, NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
+
         CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsDiv, gridSize, blockSize, argsCentroidsDiv, 0, NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, gridSize, blockSize, argsMaxDist, 0, NULL));
-        CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, gridSize, blockSize, argsMaxDist, sizeof(float), NULL));
+        CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
         // Get MaxDist & Changes back to CPU
         CHECK_CUDA_CALL(cudaMemcpy(&maxDist, d_maxDist, sizeof(float), cudaMemcpyDeviceToHost));
@@ -621,18 +646,20 @@ int main(int argc, char* argv[])
         #endif
 
         // Check Termination Conditions
-        endLoop = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
+        anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
 
-        if(endLoop){
+        if(anotherIteration){
             // Update Centroids for the next iteration
             CHECK_CUDA_CALL(cudaMemcpy(d_centroids, d_auxCentroids, K*samples*sizeof(float), cudaMemcpyDeviceToDevice));    
             it++;
         }
         
-    } while(endLoop);
+    } while(anotherIteration);
 
-    CHECK_CUDA_CALL(cudaMemcpy(classMap, d_classMap, lines*sizeof(int), cudaMemcpyDeviceToHost)); // only needed at the end
+    // Copy final ClassMap on CPU
+    CHECK_CUDA_CALL(cudaMemcpy(classMap, d_classMap, lines*sizeof(int), cudaMemcpyDeviceToHost));
 
+    // Free GPU memory
     CHECK_CUDA_CALL(cudaFree(d_pointPerClass));
     CHECK_CUDA_CALL(cudaFree(d_classMap));
     CHECK_CUDA_CALL(cudaFree(d_centroids)); 
