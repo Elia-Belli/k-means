@@ -8,7 +8,7 @@ for ((i=0; i < TEST_RUN; i++));
     do
       echo "[MPI] Running test ${j}"
       {\
-        mpirun -np "${MPI_PROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_mpi_${j}.txt" 2>"/dev/null"; \
+        mpirun --np "${MPI_PROCESSES}" --oversubscribe ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_mpi_${j}.txt" 2>"/dev/null"; \
         printf ","; \
         ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_mpi_${j}.txt" >> "${TEST_RESULTS}input_${j}.txt"
       } >> "${TEST_RESULTS}input_${j}.txt"
