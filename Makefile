@@ -21,19 +21,11 @@ ARCH=-arch=sm_75
 FMAD=-fmad=false
 
 # Targets to build
-OBJS = 	./bin/KMEANS_seq\
-		./bin/KMEANS_seq_D\
- 		./bin/KMEANS_mpi\
- 		./bin/KMEANS_mpi_D\
- 		./bin/KMEANS_omp\
- 		./bin/KMEANS_omp_D\
- 		./bin/KMEANS_cuda\
- 		./bin/KMEANS_cuda_D\
- 		./bin/KMEANS_mpi+omp\
- 		./bin/KMEANS_mpi+omp_D\
- 		./bin/compare\
- 		./bin/test_generator\
- 		./bin/out/*
+OBJS = 	KMEANS_seq\
+ 		KMEANS_mpi\
+ 		KMEANS_omp\
+ 		KMEANS_cuda\
+ 		KMEANS_mpi+omp\
 
 # Rules. By default show help
 help:
@@ -58,36 +50,21 @@ all: $(OBJS)
 KMEANS_seq: ./source/KMEANS.c
 	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_seq_D: ./source/KMEANS.c
-	$(CC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
-	
 # mpi
 KMEANS_mpi: ./source/KMEANS_mpi.c
 	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_mpi_D: ./source/KMEANS_mpi.c
-	$(MPICC) $(FLAGS) $(DEBUG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
 # omp
 KMEANS_omp: ./source/KMEANS_omp.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
-KMEANS_omp_D: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
-
 # cuda
 KMEANS_cuda: ./source/KMEANS_cuda.cu
 	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) $(FMAD) -o ./bin/$@
 
-KMEANS_cuda_D: ./source/KMEANS_cuda.cu
-	$(CUDACC) $(DEBUG) $< $(LIBS) $(ARCH) $(FMAD) -Xptxas -v -o ./bin/$@ -D DEBUG
-
 # mpi + omp
 KMEANS_mpi+omp: ./source/KMEANS_mpi+omp.c
 	$(MPICC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_mpi+omp_D: ./source/KMEANS_mpi+omp.c
-	$(MPICC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@ -D DEBUG
 
 # utils
 compare: ./source/utils/compare.c
@@ -98,9 +75,9 @@ test_generator: ./source/utils/test_generator.c
 
 # Remove the target files
 clean:
-	rm -rf $(OBJS)
+	rm -rf ./bin/KMEANS_* ./bin/compare ./bin/test_generator ./bin/out/*
 
 # Compile in debug mode
 debug:
-	make DEBUG="-DDEBUG -g" FLAGS= all
+	make DEBUG="-D DEBUG -g" FLAGS= all
 

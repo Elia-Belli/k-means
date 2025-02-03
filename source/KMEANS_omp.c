@@ -263,12 +263,13 @@ int main(int argc, char* argv[])
     // The centroids are points stored in the data array.
     initCentroids(data, centroids, centroidPos, samples, K);
 
-
+    #ifdef DEBUG
     printf("\n\tData file: %s \n\tPoints: %d\n\tDimensions: %d\n", argv[1], lines, samples);
     printf("\tNumber of clusters: %d\n", K);
     printf("\tMaximum number of iterations: %d\n", maxIterations);
     printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
     printf("\tMaximum centroid precision: %f\n", maxThreshold);
+    #endif
 
     //END CLOCK*****************************************
     end = omp_get_wtime();
@@ -405,19 +406,20 @@ int main(int argc, char* argv[])
     start = omp_get_wtime();
     //**************************************************
 
-
-    if (changes <= minChanges)
-    {
-        printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
-    }
-    else if (it >= maxIterations)
-    {
-        printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
-    }
-    else
-    {
-        printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
-    }
+    #ifdef DEBUG
+        if (changes <= minChanges)
+        {
+            printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
+        }
+        else if (it >= maxIterations)
+        {
+            printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
+        }
+        else
+        {
+            printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
+        }
+    #endif
 
     // Writing the classification of each point to the output file.
     error = writeResult(classMap, lines, argv[6]);

@@ -276,6 +276,7 @@ int main(int argc, char* argv[])
     // The centroids are points stored in the data array.
     initCentroids(data, centroids, centroidPos, samples, K);
 
+    #ifdef DEBUG
     if (rank == 0)
     {
         printf("\n\tData file: %s \n\tPoints: %d\n\tDimensions: %d\n", argv[1], lines, samples);
@@ -284,6 +285,7 @@ int main(int argc, char* argv[])
         printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
         printf("\tMaximum centroid precision: %f\n", maxThreshold);
     }
+    #endif
 
     //END CLOCK*****************************************
     end = MPI_Wtime();
@@ -517,6 +519,7 @@ int main(int argc, char* argv[])
 
     if (rank == 0)
     {
+        #ifdef DEBUG
         if (changes <= minChanges)
         {
             printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
@@ -529,6 +532,7 @@ int main(int argc, char* argv[])
         {
             printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
         }
+        #endif
 
 
         MPI_Wait(&req, MPI_STATUS_IGNORE);

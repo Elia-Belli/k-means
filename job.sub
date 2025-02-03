@@ -1,9 +1,9 @@
 universe = vanilla
 
 # Where should the output/error be saved
-log = logs/job.log
-output = logs/job.out
-error = logs/job.err
+log = logs/single_lib_tests.log
+output = logs/single_lib_tests.out
+error = logs/single_lib_tests.err
 
 # Request GPU resources
 request_cpus = 32

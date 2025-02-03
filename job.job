@@ -1,22 +1,20 @@
 universe = parallel
 
-executable = k-means/openmpiscript.sh
+executable = openmpiscript.sh
 
-arguments = "k-means/bin/KMEANS_mpi+omp ./k-means/test_files/input100D2.inp 100 150 0.01 0.01 ./k-means/bin/out/KMEANS_mpi+omp.txt"
-
-requirements = '(Machine != "node126.di.rm1")'
+arguments = bin/KMEANS_mpi+omp "./test_files/input100D2.inp" 100 150 0.01 0.01 "./bin/out/KMEANS_mpi+omp_5"
 
 should_transfer_files = YES
 
-transfer_input_files = k-means/bin/KMEANS_mpi+omp ./k-means/test_files/input100D2.inp 100 150 0.01 0.01 ./k-means/bin/out/KMEANS_mpi+omp.txt"
+transfer_input_files = bin/KMEANS_mpi+omp
 
 when_to_transfer_output = on_exit_or_evict
 
-output = logs/out.$(NODE)
-error = logs/err.$(NODE)
-log = logs/log
+output = logs/multiple_lib_out.$(NODE)
+error = logs/multiple_lib_err.$(NODE)
+log = logs/multiple_lib_log
 
-machine_count = 1
+machine_count = 8
 request_cpus = 32
 
 getenv = True

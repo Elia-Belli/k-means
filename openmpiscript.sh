@@ -108,32 +108,32 @@ CONDOR_CHIRP=$(condor_config_val libexec)/condor_chirp
 force_cleanup() {
     # Forward SIGTERM to the orted launcher
     if [ $_orted_launcher_pid -ne 0 ]; then
-        kill -s SIGTERM $_orted_launcher_pid
+	kill -s SIGTERM $_orted_launcher_pid
     fi
 
     # Cleanup mpirun
     if [ $_CONDOR_PROCNO -eq 0 ] && [ $_mpirun_pid -ne 0 ]; then
-        $CONDOR_CHIRP ulog "Node $_CONDOR_PROCNO caught SIGTERM, cleaning up mpirun"
-        rm $HOSTFILE
+	$CONDOR_CHIRP ulog "Node $_CONDOR_PROCNO caught SIGTERM, cleaning up mpirun"
+	rm $HOSTFILE
 
-        # Send SIGTERM to mpirun and the orted launcher
-        kill -s SIGTERM $_mpirun_pid
+	# Send SIGTERM to mpirun and the orted launcher
+	kill -s SIGTERM $_mpirun_pid
 
-        # Give mpirun 30 seconds to terminate nicely
-        for i in {1..30}; do
-            kill -0 $_mpirun_pid 2> /dev/null # returns 0 if running
-            _mpirun_killed=$?
-            if [ $_mpirun_killed -ne 0 ]; then
-                break
-            fi
-            sleep 1
-        done
+	# Give mpirun 30 seconds to terminate nicely
+	for i in {1..30}; do
+	    kill -0 $_mpirun_pid 2> /dev/null # returns 0 if running
+	    _mpirun_killed=$?
+	    if [ $_mpirun_killed -ne 0 ]; then
+		break
+	    fi
+	    sleep 1
+	done
 
-        # If mpirun is still running, send SIGKILL
-        if [ $_mpirun_killed -eq 0 ]; then
-            $CONDOR_CHIRP ulog "mpirun hung on Node ${_CONDOR_PROCNO}, sending SIGKILL!"
-            kill -s SIGKILL $_mpirun_pid
-        fi
+	# If mpirun is still running, send SIGKILL
+	if [ $_mpirun_killed -eq 0 ]; then
+	    $CONDOR_CHIRP ulog "mpirun hung on Node ${_CONDOR_PROCNO}, sending SIGKILL!"
+	    kill -s SIGKILL $_mpirun_pid
+	fi
 
     fi
     exit 1
@@ -165,11 +165,11 @@ REQUEST_CPUS=$(condor_q -jobads $_CONDOR_JOB_AD -af RequestCpus)
 
 for node in $(seq 0 $(( $_CONDOR_NPROCS - 1 ))); do
     if $USE_OPENMP; then
-        # OpenMP will do the threading on the execute node
-        echo "$node slots=1" >> $HOSTFILE
+	# OpenMP will do the threading on the execute node
+	echo "$node slots=1" >> $HOSTFILE
     else
-        # OpenMPI will do the threading on the execute node
-        echo "$node slots=$REQUEST_CPUS" >> $HOSTFILE
+	# OpenMPI will do the threading on the execute node
+	echo "$node slots=$REQUEST_CPUS" >> $HOSTFILE
     fi
 done
 
