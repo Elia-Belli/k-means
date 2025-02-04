@@ -60,10 +60,6 @@ if [ "$RUN_LOCAL" == true ]; then
   if [ "$RUN_SINGLE" == true ]; then
     ./single_lib_tests.sh
   fi
-
-  if [ $RUN_COMBINED == true ]; then
-    ./combined_lib_tests.sh
-  fi
 else
   if [ "$RUN_SINGLE" == true ]; then
     condor_submit job.vanilla

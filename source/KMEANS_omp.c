@@ -335,7 +335,7 @@ int main(int argc, char* argv[])
             }
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
-            # pragma omp for
+            # pragma omp for nowait
             for (i = 0; i < lines; i++)
             {
                 cluster = classMap[i] - 1;
@@ -354,10 +354,13 @@ int main(int argc, char* argv[])
             }
             #pragma omp barrier
 
-            # pragma omp for
-            for (i = 0; i < auxCentroidsSize; i++)
+            # pragma omp for nowait
+            for (i = 0; i < K; i++)
             {
-                auxCentroids[i] /= pointsPerClass[i / samples];
+                for (j = 0; j < samples; j++)
+                {
+                    auxCentroids[i * samples + j] /= pointsPerClass[i];
+                }
             }
 
             // 3. Get the maximum movement of a centroid compared to its previous position
