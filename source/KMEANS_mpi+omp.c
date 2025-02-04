@@ -304,13 +304,13 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     start = MPI_Wtime();
     //**************************************************
-    char* outputMsg = (char*)calloc(10000, sizeof(char));
+    char* outputMsg = NULL;
     char line[100];
 
     const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
     const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
 
-    float_t dist, minDist, maxDist;
+    float_t dist, minDist = FLT_MAX, maxDist = FLT_MIN;
     int it = 1, changes = 0, anotherIteration = 0;
     int cluster, j;
     int* classMap = NULL;
@@ -376,8 +376,9 @@ int main(int argc, char* argv[])
         linesPerProcess = calloc(size, sizeof(int));
         displacementPerProcess = calloc(size, sizeof(int));
         classMap = calloc(lines, sizeof(int));
+        outputMsg = calloc(10000, sizeof(char));
 
-        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL)
+        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL || outputMsg == NULL)
         {
             fprintf(stderr, "Memory allocation error.\n");
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -595,21 +596,25 @@ int main(int argc, char* argv[])
         free(linesPerProcess);
         free(displacementPerProcess);
         free(classMap);
+        free(outputMsg);
     }
 
     //Free memory
     free(centroidsPerProcess);
     free(centroidsDispls);
+    free(pointsPerClass);
+    free(auxCentroids);
+    free(auxCentroids2);
+    free(localClassMap);
     free(data);
     free(centroidPos);
     free(centroids);
-    free(pointsPerClass);
-    free(auxCentroids);
     MPI_Request_free(&req);
     MPI_Request_free(&reqs[0]);
     MPI_Request_free(&reqs[1]);
     MPI_Request_free(&reqs[2]);
-
+    MPI_Request_free(&workSplit[0]);
+    MPI_Request_free(&workSplit[1]);
     //END CLOCK*****************************************
     #ifdef DEBUG
     end = MPI_Wtime();

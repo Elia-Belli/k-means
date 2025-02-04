@@ -303,10 +303,10 @@ int main(int argc, char* argv[])
     MPI_Barrier(MPI_COMM_WORLD);
     start = MPI_Wtime();
     //**************************************************
-    char* outputMsg = (char*)calloc(10000, sizeof(char));
+    char* outputMsg = NULL;
     char line[100];
 
-    float_t dist, minDist, maxDist;
+    float_t dist, minDist = FLT_MAX, maxDist = FLT_MIN;
     int it = 1, changes = 0, anotherIteration = 0;
     int cluster, j;
     int* classMap = NULL;
@@ -315,9 +315,9 @@ int main(int argc, char* argv[])
     //auxCentroids: mean of the points in each class
     int* centroidsPerProcess = calloc(size, sizeof(int));
     int* centroidsDispls = calloc(size, sizeof(int));
-    int* pointsPerClass = (int*)calloc(K, sizeof(int));
-    float* auxCentroids = (float*)calloc(K * samples, sizeof(float));
-    float* auxCentroids2 = (float*)calloc(K * samples, sizeof(float));
+    int* pointsPerClass = calloc(K, sizeof(int));
+    float* auxCentroids = calloc(K * samples, sizeof(float));
+    float* auxCentroids2 = calloc(K * samples, sizeof(float));
     if (pointsPerClass == NULL || auxCentroids == NULL || auxCentroids2 == NULL || centroidsPerProcess == NULL ||
         centroidsDispls == NULL)
     {
@@ -372,8 +372,10 @@ int main(int argc, char* argv[])
         linesPerProcess = calloc(size, sizeof(int));
         displacementPerProcess = calloc(size, sizeof(int));
         classMap = calloc(lines, sizeof(int));
+        outputMsg = calloc(10000, sizeof(char));
 
-        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL)
+
+        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL || outputMsg == NULL)
         {
             fprintf(stderr, "Memory allocation error.\n");
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -551,16 +553,19 @@ int main(int argc, char* argv[])
         free(linesPerProcess);
         free(displacementPerProcess);
         free(classMap);
+        free(outputMsg);
     }
 
     //Free memory
     free(centroidsPerProcess);
     free(centroidsDispls);
+    free(pointsPerClass);
+    free(auxCentroids);
+    free(auxCentroids2);
+    free(localClassMap);
     free(data);
     free(centroidPos);
     free(centroids);
-    free(pointsPerClass);
-    free(auxCentroids);
     MPI_Request_free(&req);
     MPI_Request_free(&reqs[0]);
     MPI_Request_free(&reqs[1]);

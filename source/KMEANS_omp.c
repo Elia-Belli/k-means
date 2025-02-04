@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
     int i, j, cluster;
     int anotherIteration = 0;
     int auxCentroidsSize = K * samples;
-    float_t dist, minDist, maxDist = FLT_MIN;
+    float_t dist, minDist = FLT_MAX, maxDist = FLT_MIN;
 
     // pointPerClass: number of points classified in each class
     // auxCentroids: mean of the points in each class
@@ -443,6 +443,7 @@ int main(int argc, char* argv[])
     free(centroids);
     free(pointsPerClass);
     free(auxCentroids);
+    free(outputMsg);
 
     //END CLOCK*****************************************
     #ifdef DEBUG
