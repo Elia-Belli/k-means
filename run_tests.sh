@@ -39,8 +39,11 @@ for ((i=0; i < INPUT_NUM; i++));
 do
   touch "${TEST_RESULTS}input_${i}.txt"
   printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >> "${TEST_RESULTS}input_${i}.txt"
-  touch "${TEST_RESULTS}input_${i}_parallel.txt"
-  printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >> "${TEST_RESULTS}input_${i}_parallel.txt"
+
+  if [ "$RUN_LOCAL" != true ]; then
+    touch "${TEST_RESULTS}input_${i}_parallel.txt"
+    printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >> "${TEST_RESULTS}input_${i}_parallel.txt"
+  fi
 done
 echo "ALL RESULTS FILES ARE CREATED"
 
@@ -60,7 +63,12 @@ if [ "$RUN_LOCAL" == true ]; then
   if [ "$RUN_SINGLE" == true ]; then
     ./single_lib_tests.sh
   fi
+
+  if [ "$RUN_COMBINED" == true ]; then
+    ./combined_lib_tests_local.sh
+  fi
 else
+  echo "SUBMITTING CONDOR JOBS"
   if [ "$RUN_SINGLE" == true ]; then
     condor_submit job.vanilla
   fi
@@ -69,3 +77,5 @@ else
     condor_submit job.parallel
   fi
 fi
+
+echo "TESTS DONE, CHECK THE RESULTS IN ${TEST_RESULTS}"

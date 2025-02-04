@@ -404,13 +404,6 @@ int main(int argc, char* argv[])
 
     # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, cluster, dist, minDist)
     {
-        float* threadAuxCentroids = calloc(K * samples, sizeof(float));
-        if (threadAuxCentroids == NULL)
-        {
-            fprintf(stderr, "Memory allocation error.\n");
-            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-        }
-
         do
         {
             // 1. Assign each point to a class and count the elements in each class
@@ -437,32 +430,32 @@ int main(int argc, char* argv[])
                 pointsPerClass[cluster - 1]++;
             }
 
-            // 2. Compute the coordinates mean of all the point in the same class
-            #pragma omp single nowait
-            MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
+            # pragma omp single nowait
+            {
+                MPI_CHECK_RETURN(
+                    MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req)
+                );
+                MPI_CHECK_RETURN(
+                    MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0])
+                );
+            }
 
-            #pragma omp for
+            // 2. Compute the coordinates mean of all the point in the same class
+            # pragma omp for reduction(+:auxCentroids[:K*samples])
             for (i = 0; i < lineOffset; i++)
             {
                 cluster = localClassMap[i] - 1;
                 for (j = 0; j < samples; j++)
                 {
-                    threadAuxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
+                    auxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
                 }
             }
-
-            for (i = 0; i < K * samples; i++)
-            {
-                #pragma omp atomic
-                auxCentroids[i] += threadAuxCentroids[i];
-                threadAuxCentroids[i] = 0.0;
-            }
-            #pragma omp barrier
 
             #pragma omp single
             {
                 MPI_CHECK_RETURN(
-                    MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+                    MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD)
+                );
                 MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
             }
 
@@ -476,13 +469,13 @@ int main(int argc, char* argv[])
                 }
             }
 
-            // no need for barrier, the rank will work only on the auxCentroids he computed
-            // so they will necessarily be ready
-            #pragma omp single nowait
-            MPI_CHECK_RETURN(MPI_Iallgatherv(
-                auxCentroids + startCentroid * samples, centroidOffsetPerSamples, MPI_FLOAT,
-                auxCentroids2, centroidsPerProcess, centroidsDispls,
-                MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
+            # pragma omp single nowait
+            {
+                MPI_CHECK_RETURN(MPI_Iallgatherv(
+                    auxCentroids + startCentroid * samples, centroidOffsetPerSamples, MPI_FLOAT,
+                    auxCentroids2, centroidsPerProcess, centroidsDispls,
+                    MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
+            }
 
             // 3. Compute the maximum movement of a centroid compared to its previous position
             # pragma omp for reduction(max:maxDist)
@@ -502,9 +495,6 @@ int main(int argc, char* argv[])
 
             #pragma omp single
             {
-                MPI_CHECK_RETURN(
-                    MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0])
-                );
                 MPI_CHECK_RETURN(
                     MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1])
                 );
@@ -533,8 +523,6 @@ int main(int argc, char* argv[])
             }
         }
         while (anotherIteration);
-
-        free(threadAuxCentroids);
     }
 
     // 5. Gather to the root process all the information that will be written in the output file
@@ -551,14 +539,14 @@ int main(int argc, char* argv[])
     MPI_Reduce(&localTime, &globalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     if (rank == 0)
     {
-    #ifdef DEBUG
+        #ifdef DEBUG
         // Print to stdout all the info about this run
         printf("%s", outputMsg);
         printf("\nComputation: %f seconds", globalTime);
-    #else
+        #else
         printf("mpi+omp,%f", globalTime);
-    #endif
-    fflush(stdout);
+        #endif
+        fflush(stdout);
     }
     //**************************************************
     //START CLOCK***************************************

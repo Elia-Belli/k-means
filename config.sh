@@ -5,10 +5,12 @@ TEST_DIR="./test_files/"
 OUT_DIR="./bin/out/"
 TEST_RESULTS="tests/"
 
-MPI_PROCESSES=12
-export OMP_NUM_THREADS=12
+MPI_PROCESSES=4
+OMP_NUM_THREADS=4
+MPI_PROCESSES_COMBINED=2 # only in local
+OMP_NUM_THREADS_COMBINED=2 # only in local
 
-TEST_RUN=100
+TEST_RUN=1
 INPUT_NUM=6
 INPUT=("${TEST_DIR}input2D.inp" "${TEST_DIR}input2D2.inp" "${TEST_DIR}input10D.inp" "${TEST_DIR}input20D.inp" "${TEST_DIR}input100D.inp" "${TEST_DIR}input100D2.inp")
 K=(100 8 100 100 100 100)

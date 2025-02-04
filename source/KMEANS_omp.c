@@ -237,7 +237,6 @@ int main(int argc, char* argv[])
     }
 
     // Parameters
-
     const int K = atoi(argv[2]);
     int maxIterations = atoi(argv[3]);
     int minChanges = (int)(lines * atof(argv[4]) / 100.0);
@@ -305,9 +304,6 @@ int main(int argc, char* argv[])
 
     # pragma omp parallel num_threads(OMP_NUM_THREADS) private(i, j, cluster, dist, minDist)
     {
-        float* threadAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
-        assert(threadAuxCentroids != NULL);
-
         do
         {
             // 1. Assign each point to a class and count the elements in each class
@@ -335,24 +331,15 @@ int main(int argc, char* argv[])
             }
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
-            # pragma omp for nowait
+            # pragma omp for reduction(+:auxCentroids[:auxCentroidsSize])
             for (i = 0; i < lines; i++)
             {
                 cluster = classMap[i] - 1;
                 for (j = 0; j < samples; j++)
                 {
-                    threadAuxCentroids[cluster * samples + j] += data[i * samples + j];
+                    auxCentroids[cluster * samples + j] += data[i * samples + j];
                 }
             }
-
-            // TODO: Reduce ad albero
-            for (i = 0; i < auxCentroidsSize; i++)
-            {
-                # pragma omp atomic
-                auxCentroids[i] += threadAuxCentroids[i];
-                threadAuxCentroids[i] = 0.0;
-            }
-            #pragma omp barrier
 
             # pragma omp for nowait
             for (i = 0; i < K; i++)
@@ -397,8 +384,6 @@ int main(int argc, char* argv[])
             }
         }
         while (anotherIteration);
-
-        free(threadAuxCentroids);
     }
     // Output and termination conditions
 

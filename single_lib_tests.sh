@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 source config.sh
 
+export OMP_NUM_THREADS=$OMP_NUM_THREADS
+
 for ((i=0; i < TEST_RUN; i++));
   do
     echo "[${i}] Running MPI version"
@@ -30,7 +32,7 @@ for ((i=0; i < TEST_RUN; i++));
 
     echo "[${i}] OpenMP runs completed"
 
-    echo "[${i}] Running Cuda version"
+#    echo "[${i}] Running Cuda version"
 
 #    for ((j=0; j < INPUT_NUM; j++));
 #    do

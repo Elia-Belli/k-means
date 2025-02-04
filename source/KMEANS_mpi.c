@@ -425,6 +425,7 @@ int main(int argc, char* argv[])
 
         // 2. Compute the coordinates mean of all the point in the same class
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, pointsPerClass, K, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &req));
+        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
 
         for (i = 0; i < lineOffset; i++)
         {
@@ -469,7 +470,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &changes, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD, &reqs[0]));
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
 
         memset(pointsPerClass, 0, K * sizeof(int));

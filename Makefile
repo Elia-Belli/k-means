@@ -24,8 +24,8 @@ FMAD=-fmad=false
 OBJS = 	KMEANS_seq\
  		KMEANS_mpi\
  		KMEANS_omp\
- 		KMEANS_cuda\
  		KMEANS_mpi+omp\
+ 		KMEANS_cuda\
 
 # Rules. By default show help
 help:
