@@ -32,6 +32,7 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 void getDeviceProperties(int device, int* SMcount, int* maxThreadsPerBlock, size_t* maxSharedMem);
+int getBlockSize(int threads, size_t sharedPerThread, int regsPerThread);
 
 /*
  * Macros to show errors when calling a CUDA library function,
@@ -75,7 +76,7 @@ float euclideanDistance(float *point, float *center, int samples)
 }
 
 
-__global__ void kmeansMapClassOptimized(float *data, float *centroids, int *classMap, int *pointsPerClass,
+__global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int *pointsPerClass,
             int* changes, int lines, int samples, int K)
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
@@ -140,7 +141,7 @@ __global__ void kmeansMapClassOptimized(float *data, float *centroids, int *clas
     }
 }
 
-__global__ void kmeansMapClass(float *data, float *centroids, int *classMap, int *pointsPerClass,
+__global__ void kmeansMapClassTiling(float *data, float *centroids, int *classMap, int *pointsPerClass,
             int* changes, int lines, int samples, int K)
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
@@ -221,14 +222,14 @@ __global__ void kmeansCentroidsSum(float *data, float *auxCentroids, int *pointP
 {   
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int gridSize = gridDim.x * blockDim.x;
-    int i, j, cluster;
+    int i, cluster;
 
-    for(i = globID; i < lines; i += gridSize){
-        
-        cluster = classMap[i] - 1;
-        for(j = 0; j < samples; j++)
+    if(globID < lines)
+    {
+        cluster = classMap[globID] - 1;
+        for(i = 0; i < samples; i++)
         {
-            atomicAdd(&auxCentroids[cluster * samples + j], data[i * samples + j]);
+            atomicAdd(&auxCentroids[cluster * samples + i], data[globID * samples + i]);
         }
     }
 }
@@ -577,16 +578,23 @@ int main(int argc, char* argv[])
  *
  */
     int SMcount, maxThreadsPerBlock;
-    size_t sharedOptimizationSize, maxSharedMem, sharedMemMapClass;
+    size_t maxSharedMem, sharedMapClassBase, sharedMapClassTiling, sharedMapClass;
     getDeviceProperties(0, &SMcount, &maxThreadsPerBlock, &maxSharedMem);
 
-    sharedOptimizationSize = (K+1)*sizeof(int) + (K*samples) * sizeof(float);
-    sharedMemMapClass = (sharedOptimizationSize < maxSharedMem) ? sharedOptimizationSize : ((K+1+samples)*sizeof(int));
+    sharedMapClassTiling = (K+1+samples) * sizeof(int) ;
+    sharedMapClassBase = (K+1) * sizeof(int) + (K*samples) * sizeof(float);
 
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int anotherIteration = 1;
-    dim3 gridSize = lines/128 +1, blockSize = 128; 
+
+    int gridSize, blockSize; 
+    blockSize = getBlockSize(lines, sharedMapClass, 32);
+    gridSize = ceil(lines/blockSize);
+
+    #ifdef DEBUG
+    printf("\nBlockSize: %d\n\n", blockSize);
+    #endif
 
     // Allocation of GPU data structures
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));  
@@ -617,12 +625,12 @@ int main(int argc, char* argv[])
         CHECK_CUDA_CALL(cudaMemset(d_pointPerClass, 0, K*sizeof(int)));
 
         // Kernerls
-        if(sharedOptimizationSize < maxSharedMem)
+        if(sharedMapClassBase < maxSharedMem)
         {
-            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClassOptimized, gridSize, blockSize, argsMapClass, sharedOptimizationSize, NULL));
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMapClass, sharedMapClassBase, NULL));
         }else
         {
-            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClass, gridSize, blockSize, argsMapClass, sharedMemMapClass, NULL));
+            CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMapClassTiling, gridSize, blockSize, argsMapClass, sharedMapClassTiling, NULL));
         }
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
@@ -759,3 +767,33 @@ void getDeviceProperties(int device, int* SMcount, int* threadsPerBlock, size_t*
     
 }
 
+int getBlockSize(int threads, size_t sharedPerThread, int regsPerThread)
+{
+    cudaDeviceProp prop;
+    cudaGetDeviceProperties(&prop, 0);
+
+    int warpSize = prop.warpSize;
+    int regsPerBlock = prop.regsPerBlock;
+    int sharedMemory = prop.sharedMemPerBlock;
+
+    // For cc >= 3.0 we have at least 4 warpSchedulers per SM
+
+    /* Registers per Thread for each kernel
+    - kmeansMapClass : 32
+    - kmeansMapClassOptimized : 30
+    - kmeansCentroidsSum : 18
+    - kmeansCentroidsDiv : 20
+    - kmeansMaxDist : 29
+    */
+
+    int criterias[3];
+    criterias[0] = 4 * warpSize;
+    criterias[1] = regsPerBlock/32;
+    criterias[2] = prop.maxThreadsPerMultiProcessor;
+
+    int blockSize = min(min(criterias[0],criterias[1]), criterias[2]);
+
+    blockSize = warpSize * ceil(blockSize/warpSize);
+
+    return blockSize;
+}
