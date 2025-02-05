@@ -17,7 +17,7 @@ CUDACC=nvcc
 # Flags for optimization and libs
 FLAGS=-O3 -Wall
 LIBS=-lm
-ARCH=-arch=sm_75
+ARCH=-arch=sm_50
 FMAD=-fmad=false
 
 # Targets to build

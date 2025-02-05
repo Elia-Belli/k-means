@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source config.sh
-
+# TODO: add if
 for ((i=0; i < TEST_RUN; i++));
   do
     for ((j=0; j < INPUT_NUM; j++));

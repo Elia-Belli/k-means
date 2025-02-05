@@ -11,13 +11,6 @@ do
     RUN_SEQ=false
   elif [ "$arg" == "--local" ]; then
     RUN_LOCAL=true
-  elif [ "$arg" == "--single" ]; then
-    RUN_SINGLE=true
-  elif [ "$arg" == "--combined" ]; then
-    RUN_COMBINED=true
-  elif [ "$arg" == "--all" ]; then
-    RUN_COMBINED=true
-    RUN_SINGLE=true
   fi
 done
 
@@ -60,22 +53,11 @@ fi
 
 echo
 if [ "$RUN_LOCAL" == true ]; then
-  if [ "$RUN_SINGLE" == true ]; then
     ./single_lib_tests.sh
-  fi
-
-  if [ "$RUN_COMBINED" == true ]; then
     ./combined_lib_tests_local.sh
-  fi
 else
-  echo "SUBMITTING CONDOR JOBS"
-  if [ "$RUN_SINGLE" == true ]; then
     condor_submit job.vanilla
-  fi
-
-  if [ "$RUN_COMBINED" == true ]; then
     condor_submit job.parallel
-  fi
 fi
 
 echo "TESTS DONE, CHECK THE RESULTS IN ${TEST_RESULTS}"
