@@ -276,13 +276,14 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
 
     __syncthreads();
 
-    for(i = globID; i < K; i += gridSize)
+    if(globID < K)
     {
         dist = euclideanDistance(&auxCentroids[i * samples], &centroids[i * samples], samples);
         atomicMax(&localMaxDist, dist);
     }
 
     __syncthreads();
+
     if(locID == 0) 
         atomicMax(maxDist, localMaxDist);
     
@@ -656,10 +657,10 @@ int main(int argc, char* argv[])
         CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsSum, gridSize, blockSize, argsCentroidsSum, 0, NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsDiv, gridSize, blockSize, argsCentroidsDiv, 0, NULL));
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsDiv, ceil((K*samples)/(float)blockSize), blockSize, argsCentroidsDiv, 0, NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, gridSize, blockSize, argsMaxDist, sizeof(float), NULL));
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, ceil(K/(float)blockSize), blockSize, argsMaxDist, sizeof(float), NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
         // Get MaxDist & Changes back to CPU
