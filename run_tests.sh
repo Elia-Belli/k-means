@@ -51,8 +51,12 @@ if [ "$RUN_LOCAL" == true ]; then
     ./single_lib_tests.sh
     ./combined_lib_tests_local.sh
 else
-    condor_submit job.vanilla
-    condor_submit job.parallel
+    if [ $RUN_SEQUENTIAL_TESTS == true ] || [ $RUN_MPI_TESTS == true ] || [ $RUN_OMP_TESTS == true ] || [ $RUN_CUDA_TESTS == true ]; then
+      condor_submit job.vanilla
+    fi
+    if [ $RUN_MPI_PARALLEL_TESTS == true ] || [ $RUN_MPI_OMP_TESTS == true ]; then
+      condor_submit job.parallel
+    fi
 fi
 
 echo "TESTS DONE, CHECK THE RESULTS IN ${TEST_RESULTS}"

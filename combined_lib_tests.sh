@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source config.sh
-# TODO: add if
+
 for ((i=0; i < TEST_RUN; i++));
   do
     if [ $RUN_MPI_OMP_TESTS == true ]; then
@@ -9,7 +9,7 @@ for ((i=0; i < TEST_RUN; i++));
       do
         echo "[MPI+OMP] Running test ${j}"
         {\
-          ./openmpiscript_mod.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_mpi+omp_${j}.txt; \
+          ./openmpiscript_omp.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_mpi+omp_${j}.txt; \
           printf ","; \
           ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_mpi+omp_${j}.txt"
         } >> "${TEST_RESULTS}input_${j}_parallel.txt"
@@ -24,9 +24,9 @@ for ((i=0; i < TEST_RUN; i++));
       do
         echo "[MPI PARALLEL] Running test ${j}"
         {\
-          ./openmpiscript_mod.sh ./bin/KMEANS_mpi ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_mpi_${j}.txt; \
+          ./openmpiscript_nomp.sh ./bin/KMEANS_mpi ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_mpi_parallel_${j}.txt; \
           printf ","; \
-          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_mpi_${j}.txt"
+          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_mpi_parallel_${j}.txt"
         } >> "${TEST_RESULTS}input_${j}_parallel.txt"
         cp "${TEST_RESULTS}input_${j}_parallel.txt" "${HOME}/k-means/tests"
       done
