@@ -263,12 +263,10 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
                                 float* maxDist, int samples, int K)
 {   
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
-    int gridSize = gridDim.x * blockDim.x;
     int locID = threadIdx.x;
 
     __shared__ float localMaxDist;
-    
-    int i;
+
     float dist;
 
     if(locID == 0) 
@@ -278,7 +276,7 @@ __global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointP
 
     if(globID < K)
     {
-        dist = euclideanDistance(&auxCentroids[i * samples], &centroids[i * samples], samples);
+        dist = euclideanDistance(&auxCentroids[globID * samples], &centroids[globID * samples], samples);
         atomicMax(&localMaxDist, dist);
     }
 
@@ -567,13 +565,11 @@ int main(int argc, char* argv[])
 	start = clock();
 	//**************************************************
 	char *outputMsg = (char *)calloc(10000,sizeof(char));
+    #ifdef DEBUG
 	char line[100];
+    #endif
 
-	// int j;
-	// int classe;
-	// float dist, minDist;
-	int it=1;
-	int changes = 0;
+	int it = 1, changes;
 	float maxDist;
 
 	//pointPerClass: number of points classified in each class
