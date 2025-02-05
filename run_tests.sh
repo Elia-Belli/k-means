@@ -14,11 +14,6 @@ do
   fi
 done
 
-if [ RUN_SINGLE == false ] && [ RUN_COMBINED == false ]; then
-  echo "Please provide a test to run: --single, --combined or --all"
-  exit 0;
-fi
-
 if [ "$RUN_SEQ" == true ]; then
   make clean
 fi

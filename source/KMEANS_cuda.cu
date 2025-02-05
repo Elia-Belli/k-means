@@ -533,17 +533,20 @@ int main(int argc, char* argv[])
 	// The centroids are points stored in the data array.
 	initCentroids(data, centroids, centroidPos, samples, K);
 
-
-	printf("\n\tData file: %s \n\tPoints: %d\n\tDimensions: %d\n", argv[1], lines, samples);
-	printf("\tNumber of clusters: %d\n", K);
-	printf("\tMaximum number of iterations: %d\n", maxIterations);
-	printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
-	printf("\tMaximum centroid precision: %f\n", maxThreshold);
+	#ifdef DEBUG
+		printf("\n\tData file: %s \n\tPoints: %d\n\tDimensions: %d\n", argv[1], lines, samples);
+		printf("\tNumber of clusters: %d\n", K);
+		printf("\tMaximum number of iterations: %d\n", maxIterations);
+		printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
+		printf("\tMaximum centroid precision: %f\n", maxThreshold);
+	#endif
 	
 	//END CLOCK*****************************************
-	end = clock();
-	printf("\nMemory allocation: %f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
-	fflush(stdout);
+    #ifdef DEBUG
+		end = clock();
+		printf("\nMemory allocation: %f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
+		fflush(stdout);
+    #endif
 
 	CHECK_CUDA_CALL( cudaSetDevice(0) );
 	CHECK_CUDA_CALL( cudaDeviceSynchronize() );
@@ -682,30 +685,31 @@ int main(int argc, char* argv[])
  *
  */
 	// Output and termination conditions
-	printf("%s",outputMsg);	
 
 	CHECK_CUDA_CALL( cudaDeviceSynchronize() );
 
 	//END CLOCK*****************************************
 	end = clock();
-	printf("\nComputation: %f seconds", (double)(end - start) / CLOCKS_PER_SEC);
+    #ifdef DEBUG
+		printf("%s",outputMsg);
+		printf("\nComputation: %f seconds", (double)(end - start) / CLOCKS_PER_SEC);
+		if (changes <= minChanges) {
+			printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
+		}
+		else if (it >= maxIterations) {
+			printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
+		}
+		else {
+			printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
+		}
+    #else
+        printf("cuda,%f", (double)(end - start) / CLOCKS_PER_SEC);
+	#endif
 	fflush(stdout);
 	//**************************************************
 	//START CLOCK***************************************
 	start = clock();
 	//**************************************************
-
-	
-
-	if (changes <= minChanges) {
-		printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
-	}
-	else if (it >= maxIterations) {
-		printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
-	}
-	else {
-		printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
-	}	
 
 	// Writing the classification of each point to the output file.
 	error = writeResult(classMap, lines, argv[6]);
@@ -725,9 +729,11 @@ int main(int argc, char* argv[])
 	free(auxCentroids);
 
 	//END CLOCK*****************************************
+    #ifdef DEBUG
 	end = clock();
 	printf("\n\nMemory deallocation: %f seconds\n",(double)(end - start) / CLOCKS_PER_SEC);
 	fflush(stdout);
+    #endif
 	//***************************************************/
 	return 0;
 }
