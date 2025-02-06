@@ -21,6 +21,7 @@
 #include <time.h>
 #include <string.h>
 #include <float.h>
+#include <assert.h>
 
 #define MAXLINE 2000
 #define MAXCAD 200
@@ -289,20 +290,20 @@ int main(int argc, char* argv[])
 		printf("\tMaximum number of iterations: %d\n", maxIterations);
 		printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
 		printf("\tMaximum centroid precision: %f\n", maxThreshold);
-    #endif
 
-    //END CLOCK*****************************************
-    #ifdef DEBUG
-    end = clock();
-	printf("\nMemory allocation: %f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
-	fflush(stdout);
+        //END CLOCK*****************************************
+        end = clock();
+	    printf("\nMemory allocation: %f seconds\n", (double)(end - start) / CLOCKS_PER_SEC);
+	    fflush(stdout);
+        //**************************************************
+
+        char* outputMsg = (char*)calloc(10000, sizeof(char));
+        char line[100];
+        assert(outputMsg != NULL);
     #endif
-    //**************************************************
     //START CLOCK***************************************
     start = clock();
     //**************************************************
-    char* outputMsg = (char*)calloc(10000, sizeof(char));
-    char line[100];
 
     int j;
     int class;
@@ -409,6 +410,16 @@ int main(int argc, char* argv[])
     #ifdef DEBUG
 	printf("%s",outputMsg);
 	printf("\nComputation: %f seconds", (double)(end - start) / CLOCKS_PER_SEC);
+    if (changes <= minChanges) {
+		printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
+	}
+	else if (it >= maxIterations) {
+		printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
+	}
+	else {
+		printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
+	}
+    free(outputMsg);
     #else
     printf("seq,%f", (double)(end - start) / CLOCKS_PER_SEC);
     #endif
@@ -417,19 +428,6 @@ int main(int argc, char* argv[])
     //START CLOCK***************************************
     start = clock();
     //**************************************************
-
-
-    #ifdef DEBUG
-		if (changes <= minChanges) {
-			printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
-		}
-		else if (it >= maxIterations) {
-			printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
-		}
-		else {
-			printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
-		}
-    #endif
 
     // Writing the classification of each point to the output file.
     error = writeResult(classMap, lines, argv[6]);
