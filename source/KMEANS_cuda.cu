@@ -31,8 +31,8 @@
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
-void getDeviceProperties(int device, int* SMcount, int* maxThreadsPerBlock, size_t* maxSharedMem);
-int getBlockSize(int threads, int sharedPerThread, int regsPerThread);
+void getDeviceProperties(int device, cudaDeviceProp* prop);
+int getBlockSize(cudaDeviceProp* prop, int threads, int sharedPerThread, int regsPerThread);
 
 /*
  * Macros to show errors when calling a CUDA library function,
@@ -76,6 +76,7 @@ float euclideanDistance(float *point, float *center, int samples)
 }
 
 
+// Kernel 1
 __global__ 
 void kmeansClassMap(float *data, float *centroids, float *auxCentroids, int *classMap, int *pointsPerClass,
                     int* changes, int lines, int samples, int K)
@@ -164,10 +165,9 @@ void kmeansClassMap(float *data, float *centroids, float *auxCentroids, int *cla
 }
 
 
-// 3. Before we summed directly data[]/pointsPerClass[] in auxCentroids[]
-//      but doing so requires (lines*samples) divisions
-//    Since K << lines, doing the division after the sum reduces the number of div
-__global__ void kmeansCentroidsDiv(float* auxCentroids, int* pointsPerClass, int samples, int K)
+// Kernel 2
+__global__ 
+void kmeansCentroidsDiv(float* auxCentroids, int* pointsPerClass, int samples, int K)
 {
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
     int gridSize = gridDim.x * blockDim.x;
@@ -179,7 +179,9 @@ __global__ void kmeansCentroidsDiv(float* auxCentroids, int* pointsPerClass, int
     } 
 }
 
-__global__ void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointPerClass, 
+// Kernel 3
+__global__
+void kmeansMaxDist(float *auxCentroids, float* centroids, int* pointPerClass, 
                                 float* maxDist, int samples, int K)
 {   
     int globID = blockIdx.x * blockDim.x + threadIdx.x;
@@ -508,24 +510,48 @@ int main(int argc, char* argv[])
  * START HERE: DO NOT CHANGE THE CODE ABOVE THIS POINT
  *
  */
-    int SMcount, maxThreadsPerBlock;
-    size_t maxSharedMem, sharedClassMap;
-    getDeviceProperties(0, &SMcount, &maxThreadsPerBlock, &maxSharedMem);
+    // Device Info
+    cudaDeviceProp prop;
+    getDeviceProperties(0, &prop);
+
+    // Registers per Kernel
+    int kernelRegs[3];
+    cudaFuncAttributes attr;
+
+    CHECK_CUDA_CALL(cudaFuncGetAttributes(&attr, kmeansClassMap));
+    kernelRegs[0] = attr.numRegs;
+    CHECK_CUDA_CALL(cudaFuncGetAttributes(&attr, kmeansCentroidsDiv));
+    kernelRegs[1] = attr.numRegs;
+    CHECK_CUDA_CALL(cudaFuncGetAttributes(&attr, kmeansMaxDist));
+    kernelRegs[2] = attr.numRegs;
+
+    // Compute ideal GridSize & BlockSize per Kernel
+    size_t sharedKernel[3] = {0,0,0};
+    int gridSize[3], blockSize[3]; 
+
+    blockSize[0] = getBlockSize(&prop, lines, samples*sizeof(float), kernelRegs[0]);
+    blockSize[1] = getBlockSize(&prop, K*samples, 1, kernelRegs[1]);
+    blockSize[2] = getBlockSize(&prop, K, 1, kernelRegs[2]);
+
+    gridSize[0] = ceil(lines/(float) blockSize[0]);
+    gridSize[1] = ceil((K*samples)/(float)blockSize[1]);
+    gridSize[2] = ceil(K/(float)blockSize[2]);
+
+    sharedKernel[0] = (K + 1 + samples + blockSize[0]*samples) * sizeof(int);
+
+    #ifdef DEBUG
+    for(int i = 0; i < 3; i++)
+    {   
+        printf("\nKernel (%d)\n", i);
+        printf("    GridSize: %d\n    BlockSize: %d\n", gridSize[i], blockSize[i]);
+        printf("    Shared Memory used: %ld / %ld bytes\n\n", sharedKernel[i], prop.sharedMemPerBlock);
+    }
+    #endif
+
 
     float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int anotherIteration = 1;
-
-    int gridSize, blockSize; 
-    blockSize = getBlockSize(lines, samples*sizeof(float), 32);
-    gridSize = ceil(lines/(float)blockSize);
-
-    sharedClassMap = (K + 1 + (1+blockSize)*samples) * sizeof(int);
-
-    #ifdef DEBUG
-    printf("\nGridSize: %d\nBlockSize: %d\n", gridSize, blockSize);
-    printf("Shared Memory used: %ld / %ld bytes (in kernel ClassMap)\n\n", sharedClassMap, maxSharedMem);
-    #endif
 
     // Allocation of GPU data structures
     CHECK_CUDA_CALL(cudaMalloc((void**) &d_data, lines*samples*sizeof(float)));  
@@ -555,13 +581,13 @@ int main(int argc, char* argv[])
         CHECK_CUDA_CALL(cudaMemset(d_pointPerClass, 0, K*sizeof(int)));
 
         // Kernels
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansClassMap, gridSize, blockSize, argsClassMap, sharedClassMap, NULL));
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansClassMap, gridSize[0], blockSize[0], argsClassMap, sharedKernel[0], NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsDiv, ceil((K*samples)/(float)blockSize), blockSize, argsCentroidsDiv, 0, NULL));
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansCentroidsDiv, gridSize[1], blockSize[1], argsCentroidsDiv, sharedKernel[1], NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
-        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, ceil(K/(float)blockSize), blockSize, argsMaxDist, 0, NULL));
+        CHECK_CUDA_CALL(cudaLaunchKernel((void*) kmeansMaxDist, gridSize[2], blockSize[2], argsMaxDist, sharedKernel[2], NULL));
         CHECK_CUDA_CALL(cudaDeviceSynchronize());
 
         // Get MaxDist & Changes back to CPU
@@ -659,60 +685,48 @@ int main(int argc, char* argv[])
 
 /*
     Gets properties of cuda device
-    in: int device (number of device)
-    out: int* SMcount, int* maxSharedMem
+    DEBUG MODE: prints properties
 */
-void getDeviceProperties(int device, int* SMcount, int* threadsPerBlock, size_t* maxSharedMem)
+void getDeviceProperties(int device, cudaDeviceProp *prop)
 {
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, device);
-
-    *SMcount = prop.multiProcessorCount;
-    *threadsPerBlock = prop.maxThreadsPerBlock;
-    *maxSharedMem = prop.sharedMemPerBlock;
+    cudaGetDeviceProperties(prop, device);
 
     #ifdef DEBUG
-    printf("  Memory Clock Rate (MHz): %d\n", prop.memoryClockRate/1024);
-    printf("  Memory Bus Width (bits): %d\n", prop.memoryBusWidth);
+    printf("\nDevice %d Properties\n", device);
+    printf("  Memory Clock Rate (MHz): %d\n", prop->memoryClockRate/1024);
+    printf("  Memory Bus Width (bits): %d\n", prop->memoryBusWidth);
 
     printf("  Peak Memory Bandwidth (GB/s): %.1f\n",
-        2.0*prop.memoryClockRate*(prop.memoryBusWidth/8)/1.0e6);
-    printf("  Total global memory (Gbytes) %.1f\n",(float)(prop.totalGlobalMem)/1024.0/1024.0/1024.0);
-    printf("  Shared memory per block (Bytes) %.1f\n",(float)(prop.sharedMemPerBlock));
-    printf("  Shared memory per SM (Bytes) %.1f\n",(float)(prop.sharedMemPerMultiprocessor));
+        2.0*prop->memoryClockRate*(prop->memoryBusWidth/8)/1.0e6);
+    printf("  Total global memory (Gbytes) %.1f\n",(float)(prop->totalGlobalMem)/1024.0/1024.0/1024.0);
+    printf("  Shared memory per block (Bytes) %.1f\n",(float)(prop->sharedMemPerBlock));
+    printf("  Shared memory per SM (Bytes) %.1f\n",(float)(prop->sharedMemPerMultiprocessor));
     
-    printf("  SM count : %d\n", prop.multiProcessorCount);
-    printf("  Warp-size: %d\n", prop.warpSize);
-    printf("  max-threads-per-block: %d\n", prop.maxThreadsPerBlock);
-    printf("  max-threads-per-multiprocessor: %d\n", prop.maxThreadsPerMultiProcessor);
-    printf("  register-per-block: %d\n", prop.regsPerBlock);
+    printf("  SM count : %d\n", prop->multiProcessorCount);
+    printf("  Warp-size: %d\n", prop->warpSize);
+    printf("  max-threads-per-block: %d\n", prop->maxThreadsPerBlock);
+    printf("  max-threads-per-multiprocessor: %d\n", prop->maxThreadsPerMultiProcessor);
+    printf("  register-per-block: %d\n", prop->regsPerBlock);
     #endif
     
 }
 
-int getBlockSize(int threads, int sharedPerThread, int regsPerThread)
+/*
+    Compute ideal blockSize for a kernel
+*/
+int getBlockSize(cudaDeviceProp* prop, int threads, int sharedPerThread, int regsPerThread)
 {
-    cudaDeviceProp prop;
-    cudaGetDeviceProperties(&prop, 0);
 
-    int warpSize = prop.warpSize;
-    int regsPerBlock = prop.regsPerBlock;
-    int sharedMem = prop.sharedMemPerBlock;
+    int warpSize = prop->warpSize;
+    int regsPerBlock = prop->regsPerBlock;
+    int sharedMem = prop->sharedMemPerBlock;
 
     // For cc >= 3.0 we have at least 4 warpSchedulers per SM
-
-    /* Registers per Thread for each kernel
-    - kmeansClassMap : 32
-    - kmeansClassMapOptimized : 30
-    - kmeansCentroidsSum : 18
-    - kmeansCentroidsDiv : 20
-    - kmeansMaxDist : 29
-    */
 
     int blockSize = 4*warpSize;
     blockSize = min(blockSize, regsPerBlock/regsPerThread);
     blockSize = min(blockSize, sharedMem/sharedPerThread);
-    blockSize = min(blockSize, prop.maxThreadsPerMultiProcessor);
+    blockSize = min(blockSize, prop->maxThreadsPerMultiProcessor);
 
     blockSize = warpSize * ceil(blockSize/warpSize);
 
