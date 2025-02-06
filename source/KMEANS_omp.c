@@ -268,21 +268,20 @@ int main(int argc, char* argv[])
     printf("\tMaximum number of iterations: %d\n", maxIterations);
     printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
     printf("\tMaximum centroid precision: %f\n", maxThreshold);
-    #endif
 
     //END CLOCK*****************************************
-    #ifdef DEBUG
     end = omp_get_wtime();
     printf("\nMemory allocation: %f seconds\n", end - start);
     fflush(stdout);
-    #endif
     //**************************************************
+
+    char* outputMsg = (char*)calloc(10000, sizeof(char));
+    char line[100];
+    #endif
+
     //START CLOCK***************************************
     start = omp_get_wtime();
     //**************************************************
-    char* outputMsg = (char*)calloc(10000, sizeof(char));
-    char line[100];
-
     const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
     const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
 
@@ -392,6 +391,19 @@ int main(int argc, char* argv[])
     #ifdef DEBUG
     printf("%s", outputMsg);
     printf("\nComputation: %f seconds", end - start);
+    if (changes <= minChanges)
+    {
+        printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
+    }
+    else if (it >= maxIterations)
+    {
+        printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
+    }
+    else
+    {
+        printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
+    }
+    free(outputMsg);
     #else
     printf("omp,%f", end - start);
     #endif
@@ -400,21 +412,6 @@ int main(int argc, char* argv[])
     //START CLOCK***************************************
     start = omp_get_wtime();
     //**************************************************
-
-    #ifdef DEBUG
-        if (changes <= minChanges)
-        {
-            printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
-        }
-        else if (it >= maxIterations)
-        {
-            printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
-        }
-        else
-        {
-            printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
-        }
-    #endif
 
     // Writing the classification of each point to the output file.
     error = writeResult(classMap, lines, argv[6]);
@@ -431,8 +428,6 @@ int main(int argc, char* argv[])
     free(centroids);
     free(pointsPerClass);
     free(auxCentroids);
-    free(outputMsg);
-
     //END CLOCK*****************************************
     #ifdef DEBUG
     end = omp_get_wtime();

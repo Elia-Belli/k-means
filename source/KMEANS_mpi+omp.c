@@ -286,10 +286,8 @@ int main(int argc, char* argv[])
         printf("\tMinimum number of changes: %d [%g%% of %d points]\n", minChanges, atof(argv[4]), lines);
         printf("\tMaximum centroid precision: %f\n", maxThreshold);
     }
-    #endif
 
     //END CLOCK*****************************************
-    #ifdef DEBUG
     end = MPI_Wtime();
     localTime = end - start;
     MPI_Reduce(&localTime, &globalTime, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -298,14 +296,27 @@ int main(int argc, char* argv[])
         printf("\nMemory allocation: %f seconds\n", globalTime);
         fflush(stdout);
     }
-    #endif
     //**************************************************
+    #endif
+
     //START CLOCK***************************************
     MPI_Barrier(MPI_COMM_WORLD);
     start = MPI_Wtime();
     //**************************************************
+    #ifdef DEBUG
     char* outputMsg = NULL;
     char line[100];
+
+    if (rank == 0)
+    {
+        outputMsg = calloc(10000, sizeof(char));
+        if (outputMsg == NULL)
+        {
+            fprintf(stderr, "Memory allocation error.\n");
+            MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+        }
+    }
+    #endif
 
     const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
     const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
@@ -376,9 +387,8 @@ int main(int argc, char* argv[])
         linesPerProcess = calloc(size, sizeof(int));
         displacementPerProcess = calloc(size, sizeof(int));
         classMap = calloc(lines, sizeof(int));
-        outputMsg = calloc(10000, sizeof(char));
 
-        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL || outputMsg == NULL)
+        if (linesPerProcess == NULL || displacementPerProcess == NULL || classMap == NULL)
         {
             fprintf(stderr, "Memory allocation error.\n");
             MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -543,6 +553,19 @@ int main(int argc, char* argv[])
         // Print to stdout all the info about this run
         printf("%s", outputMsg);
         printf("\nComputation: %f seconds", globalTime);
+        if (changes <= minChanges)
+        {
+            printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
+        }
+        else if (it >= maxIterations)
+        {
+            printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
+        }
+        else
+        {
+            printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
+        }
+        free(outputMsg);
         #else
         printf("mpi+omp,%f", globalTime);
         #endif
@@ -557,22 +580,6 @@ int main(int argc, char* argv[])
 
     if (rank == 0)
     {
-        #ifdef DEBUG
-            if (changes <= minChanges)
-            {
-                printf("\n\nTermination condition:\nMinimum number of changes reached: %d [%d]", changes, minChanges);
-            }
-            else if (it >= maxIterations)
-            {
-                printf("\n\nTermination condition:\nMaximum number of iterations reached: %d [%d]", it, maxIterations);
-            }
-            else
-            {
-                printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
-            }
-        #endif
-
-
         MPI_Wait(&req, MPI_STATUS_IGNORE);
         error = writeResult(classMap, lines, argv[6]);
         if (error != 0)
@@ -584,7 +591,6 @@ int main(int argc, char* argv[])
         free(linesPerProcess);
         free(displacementPerProcess);
         free(classMap);
-        free(outputMsg);
     }
 
     //Free memory
