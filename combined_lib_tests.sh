@@ -17,7 +17,7 @@ for ((i=0; i < TEST_RUN; i++));
           printf "${VERSION},"; \
           ./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt; \
           printf ","; \
-          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"; \
+          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt"; \
         } >> "${TEST_RESULTS}input_${j}_parallel.csv"
         cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
       done
@@ -35,7 +35,7 @@ for ((i=0; i < TEST_RUN; i++));
           printf "${VERSION},"; \
           ./openmpiscript.sh ./bin/KMEANS_mpi ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt; \
           printf ","; \
-          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"; \
+          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt"; \
         } >> "${TEST_RESULTS}input_${j}_parallel.csv"
         cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
       done
