@@ -1,6 +1,5 @@
 universe = vanilla
 
-executable = single_lib_tests.sh
 requirements = (Machine != "node126.di.rm1")
 
 # Where should the output/error be saved

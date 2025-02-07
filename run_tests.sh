@@ -4,12 +4,15 @@ RUN_SEQ=true
 RUN_LOCAL=false
 RUN_SINGLE=false
 RUN_COMBINED=false
+RUN_SCALING_TESTS=false
 
 for arg in $@; do
   if [ "$arg" == "--skip" ]; then
     RUN_SEQ=false
   elif [ "$arg" == "--local" ]; then
     RUN_LOCAL=true
+  elif [ "$arg" == "--scaling" ]; then
+    RUN_SCALING_TESTS=true
   fi
 done
 
@@ -38,6 +41,7 @@ if [ "$RUN_SEQ" == true ]; then
   for ((i = 0; i < INPUT_NUM; i++)); do
     echo "[SEQUENTIAL] Running test ${i}"
     {\
+      printf "seq,"; \
       ./bin/KMEANS_seq "${INPUT[i]}" "${K[i]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_seq_${i}.txt"; \
       printf "\n"; \
     } >>"${TEST_RESULTS}input_${i}.csv"
@@ -49,12 +53,14 @@ echo
 if [ "$RUN_LOCAL" == true ]; then
   ./single_lib_tests.sh
   ./combined_lib_tests_local.sh
+elif [ "$RUN_SCALING_TESTS" == true ]; then
+    condor_submit job.vanilla -append 'executable = scaling_tests.sh'
 else
   if [ $RUN_SEQUENTIAL_TESTS == true ] || [ $RUN_MPI_TESTS == true ] || [ $RUN_OMP_TESTS == true ] || [ $RUN_CUDA_TESTS == true ]; then
-    condor_submit job.vanilla
+    condor_submit job.vanilla -append 'executable = single_lib_tests.sh'
   fi
   if [ $RUN_MPI_PARALLEL_TESTS == true ] || [ $RUN_MPI_OMP_TESTS == true ]; then
-    condor_submit job.parallel
+    condor_submit job.parallel -append 'executable = combined_lib_tests.sh'
   fi
 fi
 
