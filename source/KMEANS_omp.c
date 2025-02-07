@@ -405,7 +405,7 @@ int main(int argc, char* argv[])
     }
     free(outputMsg);
     #else
-    printf("omp,%f", end - start);
+    printf("%f", end - start);
     #endif
     fflush(stdout);
     //**************************************************

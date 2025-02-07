@@ -647,7 +647,7 @@ int main(int argc, char* argv[])
 			printf("\n\nTermination condition:\nCentroid update precision reached: %g [%g]", maxDist, maxThreshold);
 		}
     #else
-        printf("cuda,%f", (double)(end - start) / CLOCKS_PER_SEC);
+        printf("%f", (double)(end - start) / CLOCKS_PER_SEC);
 	#endif
 	fflush(stdout);
 	//**************************************************

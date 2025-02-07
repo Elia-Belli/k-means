@@ -421,7 +421,7 @@ int main(int argc, char* argv[])
 	}
     free(outputMsg);
     #else
-    printf("seq,%f", (double)(end - start) / CLOCKS_PER_SEC);
+    printf("%f", (double)(end - start) / CLOCKS_PER_SEC);
     #endif
     fflush(stdout);
     //**************************************************

@@ -537,7 +537,7 @@ int main(int argc, char* argv[])
         }
         free(outputMsg);
         #else
-        printf("mpi,%f", globalTime);
+        printf("%f", globalTime);
         #endif
         fflush(stdout);
     }
