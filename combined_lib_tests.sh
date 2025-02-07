@@ -13,13 +13,13 @@ for ((i=0; i < TEST_RUN; i++));
       for ((j=0; j < INPUT_NUM; j++));
       do
         echo "[${VERSION}] Running test ${j}"
-        {\
-          printf "${VERSION},"; \
-          ./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt; \
-          printf ","; \
-          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt"; \
-        } >> "${TEST_RESULTS}input_${j}_parallel.csv"
-        cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
+        OUTPUT=$(./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
+        COMPARISON=$(./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt")
+
+        if [ $_CONDOR_PROCNO == 0 ]; then
+          printf "%s,%s,%s\n" "${VERSION}" "${OUTPUT}" "${COMPARISON}" >> "${TEST_RESULTS}input_${j}_parallel.csv"
+          cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
+        fi
       done
       echo "[${i}] ${VERSION} runs completed"
     fi
@@ -31,13 +31,13 @@ for ((i=0; i < TEST_RUN; i++));
       for ((j=0; j < INPUT_NUM; j++));
       do
         echo "[${VERSION}] Running test ${j}"
-        {\
-          printf "${VERSION},"; \
-          ./openmpiscript.sh ./bin/KMEANS_mpi ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt; \
-          printf ","; \
-          ./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt"; \
-        } >> "${TEST_RESULTS}input_${j}_parallel.csv"
-        cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
+        OUTPUT=$(./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
+        COMPARISON=$(./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "$HOME/k-means/bin/out/KMEANS_${VERSION}_${j}.txt")
+
+        if [ $_CONDOR_PROCNO == 0 ]; then
+          printf "%s,%s,%s\n" "${VERSION}" "${OUTPUT}" "${COMPARISON}" >> "${TEST_RESULTS}input_${j}_parallel.csv"
+          cp "${TEST_RESULTS}input_${j}_parallel.csv" "${HOME}/k-means/tests"
+        fi
       done
       echo "[${i}] ${VERSION} runs completed"
     fi
