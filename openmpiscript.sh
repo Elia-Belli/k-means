@@ -41,7 +41,7 @@
 ##
 ## configuration options
 # $USE_OPENMP should be set to true if using OpenMP with your OpenMPI executable (not typical).
-USE_OPENMP=true
+USE_OPENMP=$RUN_WITH_OPENMP
 
 # Set the paths to the helper scripts
 # Get them from the HTCondor libexec directory

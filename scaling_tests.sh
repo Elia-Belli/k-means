@@ -10,6 +10,8 @@ printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}mpi_strong.csv
 printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}omp_strong.csv"
 printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}mpi_weak.csv"
 printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}omp_weak.csv"
+ulimit -s unlimited
+export OMP_STACKSIZE=512M
 
 echo "--------------------------"
 echo "STRONG SCALING RUNS STARTING"
@@ -22,12 +24,10 @@ for ((i=0; i < TEST_RUN; i++));
       VERSION="seq"
       echo "[${i}] Running ${VERSION} version"
 
-      # strong scaling test
       OUTPUT=$(\
         ./bin/KMEANS_seq "${INPUT[STRONG_SCALING_INPUT]}" "${K[STRONG_SCALING_INPUT]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${STRONG_SCALING_INPUT}.txt"\
       )
       printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
-      # end strong scaling
 
       echo "[${i}] ${VERSION} runs completed"
     fi
@@ -43,7 +43,6 @@ for ((i=0; i < TEST_RUN; i++));
         OUTPUT=$(\
           mpirun --np "${STRONG_SCALING_THREADS[j]}" --oversubscribe\
           ./bin/KMEANS_mpi "${INPUT[STRONG_SCALING_INPUT]}" "${K[STRONG_SCALING_INPUT]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${STRONG_SCALING_INPUT}.txt"\
-          2>"${TEST_RESULTS}KMEANS_${VERSION}_strong_scaling_error.txt"\
         )
 
         if [ $j != $((ITERATIONS - 1)) ]; then

@@ -38,6 +38,7 @@ echo "ALL RESULTS FILES ARE CREATED"
 
 if [ "$RUN_SEQ" == true ]; then
   echo "RUNNING SEQUENTIAL PROGRAM IN ORDER TO GATHER TESTS OUTCOMES"
+  rm -r bin/out/* # remove old files
   for ((i = 0; i < INPUT_NUM; i++)); do
     echo "[SEQUENTIAL] Running test ${i}"
     {\
