@@ -27,7 +27,7 @@ int main(int argc, char** argv){
 
     sprintf(filename, "./test_files/input%dx%d.inp", lines, samples);
 
-
+    srand(0);
     out = fopen(filename, "w+");
     for(int i = 0; i < lines; i++){
         for(int j = 0; j < samples; j++){
