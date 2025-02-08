@@ -19,7 +19,7 @@ RUN_MPI_PARALLEL_TESTS=true
 
 TEST_RUN=10
 INPUT_NUM=6
-INPUT=("${TEST_DIR}input2D.inp" "${TEST_DIR}input2D2.inp" "${TEST_DIR}input10D.inp" "${TEST_DIR}input20D.inp" "${TEST_DIR}input100D.inp" "${TEST_DIR}input100D2.inp")
+INPUT=("${TEST_DIR}input2D2.inp" "${TEST_DIR}input2D.inp" "${TEST_DIR}input10D.inp" "${TEST_DIR}input20D.inp" "${TEST_DIR}input100D.inp" "${TEST_DIR}input100D2.inp")
 K=(100 8 100 100 100 100)
 ITER=150
 MIN_CHANGES=0.01
@@ -27,4 +27,5 @@ MAX_DIST=0.01
 
 STRONG_SCALING_THREADS=(1 2 4 8 12 16 20 24 28 32)
 STRONG_SCALING_INPUT=5
+WEAK_SCALING_THREADS=(2 4 8 16 32)
 # ---------------------------------------------------------
