@@ -3,6 +3,8 @@ source config.sh
 
 # Grant file permission to needed script
 chmod +xwr openmpiscript.sh bin/compare
+ulimit -s unlimited
+export OMP_STACKSIZE=512M
 
 for ((i=0; i < TEST_RUN; i++));
   do
