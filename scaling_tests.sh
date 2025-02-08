@@ -93,10 +93,10 @@ for ((i=0; i < TEST_RUN; i++));
 
       for ((j=0; j < ITERATIONS; j++));
       do
-        echo "[${VERSION}] Running test with ${INPUT_WEAK[j]} processes"
+        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} processes"
 
         OUTPUT=$(\
-          ./bin/KMEANS_seq "${INPUT_WEAK[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
+          ./bin/KMEANS_seq "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
         )
 
         if [ $j != $((ITERATIONS - 1)) ]; then
@@ -115,11 +115,11 @@ for ((i=0; i < TEST_RUN; i++));
 
       for ((j=0; j < ITERATIONS; j++));
       do
-        echo "[${VERSION}] Running test with ${STRONG_SCALING_THREADS[j]} and ${INPUT_WEAK[j]}} processes"
+        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} with ${WEAK_SCALING_THREADS[j]}} processes"
 
         OUTPUT=$(\
           mpirun --np "${WEAK_SCALING_THREADS[j]}" --oversubscribe\
-          ./bin/KMEANS_mpi "${INPUT_WEAK[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
+          ./bin/KMEANS_mpi "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
         )
 
         if [ $j != $((ITERATIONS - 1)) ]; then
@@ -138,11 +138,11 @@ for ((i=0; i < TEST_RUN; i++));
 
       for ((j=0; j < ITERATIONS; j++));
       do
-        echo "[${VERSION}] Running test with ${STRONG_SCALING_THREADS[j]} and ${INPUT_WEAK[j]}} processes"
+        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} with ${WEAK_SCALING_THREADS[j]}} processes"
         export OMP_NUM_THREADS=${WEAK_SCALING_THREADS[j]}
 
         OUTPUT=$(\
-          ./bin/KMEANS_omp "${INPUT_WEAK[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
+          ./bin/KMEANS_omp "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
         )
 
         if [ $j != $((ITERATIONS - 1)) ]; then
