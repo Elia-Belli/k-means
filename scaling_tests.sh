@@ -120,7 +120,6 @@ for ((i=0; i < TEST_RUN; i++));
         OUTPUT=$(\
           mpirun --np "${WEAK_SCALING_THREADS[j]}" --oversubscribe\
           ./bin/KMEANS_mpi "${INPUT[j]}" "${K[j]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
-          2>"${TEST_RESULTS}KMEANS_${VERSION}_weak_scaling_error.txt"\
         )
 
         if [ $j != $((ITERATIONS - 1)) ]; then
