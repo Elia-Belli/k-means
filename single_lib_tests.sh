@@ -16,7 +16,7 @@ for ((i=0; i < TEST_RUN; i++));
       do
         echo "[${VERSION}] Running test ${j}"
         OUTPUT=$(./bin/KMEANS_seq ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
-        COMPARISON=$(./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt")
+
         printf "%s,%s,%s\n" "${VERSION}" "${OUTPUT}" "${COMPARISON}" >> "${TEST_RESULTS}input_${j}.csv"
       done
       echo "[${i}] ${VERSION} runs completed"
