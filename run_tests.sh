@@ -54,12 +54,15 @@ echo
 if [ "$RUN_LOCAL" == true ]; then
   ./single_lib_tests.sh
   ./combined_lib_tests_local.sh
-elif [ "$RUN_SCALING_TESTS" == true ]; then
-    condor_submit job.vanilla -append 'executable = scaling_tests.sh'
 else
+  if [ "$RUN_SCALING_TESTS" == true ]; then
+    condor_submit job.vanilla -append 'executable = scaling_tests.sh'
+  fi
+
   if [ $RUN_SEQUENTIAL_TESTS == true ] || [ $RUN_MPI_TESTS == true ] || [ $RUN_OMP_TESTS == true ] || [ $RUN_CUDA_TESTS == true ]; then
     condor_submit job.vanilla -append 'executable = single_lib_tests.sh'
   fi
+
   if [ $RUN_MPI_PARALLEL_TESTS == true ] || [ $RUN_MPI_OMP_TESTS == true ]; then
     condor_submit job.parallel -append 'executable = combined_lib_tests.sh'
   fi
