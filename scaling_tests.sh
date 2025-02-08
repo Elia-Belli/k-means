@@ -91,7 +91,7 @@ for ((i=0; i < TEST_RUN; i++));
       VERSION="seq"
       echo "[${i}] Running ${VERSION} version"
 
-      for ((j=0; j <= ITERATIONS; j++));
+      for ((j=0; j < ITERATIONS; j++));
       do
         echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} processes"
 
