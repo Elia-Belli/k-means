@@ -12,8 +12,5 @@ output = logs/multiple_lib_out.$(NODE)
 error = logs/multiple_lib_err.$(NODE)
 log = logs/multiple_lib_log
 
-machine_count = 8
-request_cpus = 32
-
 getenv = True
 queue

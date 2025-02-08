@@ -60,9 +60,13 @@ else
     condor_submit job.vanilla -append 'executable = single_lib_tests.sh'
   fi
 
-  if [ $RUN_MPI_PARALLEL_TESTS == true ] || [ $RUN_MPI_OMP_TESTS == true ]; then
-    condor_submit job.parallel -append 'executable = combined_lib_tests.sh'
+  if [ $RUN_MPI_OMP_TESTS == true ]; then
+    condor_submit job.parallel -append 'executable = combined_lib_tests.sh' -append 'machine_count = 8' -append 'request_cpus = 32'
   fi
+  if [ $RUN_MPI_PARALLEL_TESTS == true ]; then
+    condor_submit job.parallel -append 'executable = single_lib_tests_parallel.sh' -append 'machine_count = 32' -append 'request_cpus = 1'
+  fi
+
 fi
 
 echo "TESTS DONE, CHECK THE RESULTS IN ${TEST_RESULTS}"
