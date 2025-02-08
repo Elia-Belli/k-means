@@ -35,7 +35,7 @@ int main(int argc, char** argv){
             fprintf(out, "%d", min + rand() % (max-min));
 
             if(j  < samples -1) 
-                fprintf(out, "\t ");
+                fprintf(out, "\t");
     
         }
         fprintf(out, "\n");
