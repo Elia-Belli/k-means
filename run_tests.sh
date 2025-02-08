@@ -56,9 +56,7 @@ if [ "$RUN_LOCAL" == true ]; then
 else
   if [ "$RUN_SCALING_TESTS" == true ]; then
     condor_submit job.vanilla -append 'executable = scaling_tests.sh'
-  fi
-
-  if [ $RUN_SEQUENTIAL_TESTS == true ] || [ $RUN_MPI_TESTS == true ] || [ $RUN_OMP_TESTS == true ] || [ $RUN_CUDA_TESTS == true ]; then
+  elif [ $RUN_SEQUENTIAL_TESTS == true ] || [ $RUN_MPI_TESTS == true ] || [ $RUN_OMP_TESTS == true ] || [ $RUN_CUDA_TESTS == true ]; then
     condor_submit job.vanilla -append 'executable = single_lib_tests.sh'
   fi
 

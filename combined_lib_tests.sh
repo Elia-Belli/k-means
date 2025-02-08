@@ -2,6 +2,7 @@
 source config.sh
 
 # Grant file permission to needed script
+export RUN_WITH_OPENMP=true
 chmod +xwr openmpiscript.sh bin/compare
 ulimit -s unlimited
 export OMP_STACKSIZE=512M
@@ -11,7 +12,6 @@ for ((i=0; i < TEST_RUN; i++));
     if [ $RUN_MPI_OMP_TESTS == true ]; then
       VERSION="mpi+omp"
       echo "[${i}] Running ${VERSION} version"
-      export RUN_WITH_OPENMP=true
 
       for ((j=0; j < INPUT_NUM; j++));
       do
@@ -30,7 +30,6 @@ for ((i=0; i < TEST_RUN; i++));
     if [ $RUN_MPI_PARALLEL_TESTS == true ]; then
       VERSION="mpi_parallel"
       echo "[${i}] Running ${VERSION} version"
-      export RUN_WITH_OPENMP=false
 
       for ((j=0; j < INPUT_NUM; j++));
       do
