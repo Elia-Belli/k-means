@@ -29,7 +29,7 @@ for ((i=0; i < TEST_RUN; i++));
                     printf "%s" "${OUTPUT}" >> "${TEST_RESULTS}input_weak_${VERSION}_${NUM_MACHINES}.csv"
                     cp "${TEST_RESULTS}input_weak_${VERSION}_${NUM_MACHINES}.csv" "${HOME}/k-means/tests"
 
-                    if [j == (ITERATIONS -1)]; then
+                    if [ $j == $((ITERATIONS -1)) ]; then
                         printf "\n" "${OUTPUT}" >> "${TEST_RESULTS}input_weak_${VERSION}_${NUM_MACHINES}.csv"
                     fi
                 fi
