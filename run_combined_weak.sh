@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source config.sh
 
-for ((i=0; i < 10; i++));
+for ((i=0; i < 9; i++));
 do
   condor_submit job.parallel \
   -append "executable = weak_scaling_combined.sh" \
