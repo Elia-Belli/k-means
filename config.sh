@@ -32,4 +32,11 @@ INPUT_WEAK=("${TEST_DIR}input3125x100.inp" "${TEST_DIR}input6250x100.inp" "${TES
 WEAK_SCALING_THREADS=(1 2 4 8 12 16 20 24 28)
 
 INPUT_CUDA=("${TEST_DIR}input3125x100.inp" "${TEST_DIR}input6250x100.inp" "${TEST_DIR}input12500x100.inp" "${TEST_DIR}input25000x100.inp" "${TEST_DIR}input37500x100.inp" "${TEST_DIR}input50000x100.inp" "${TEST_DIR}input62500x100.inp" "${TEST_DIR}input75000x100.inp" "${TEST_DIR}input87500x100.inp" "${TEST_DIR}input100D2.inp" "${TEST_DIR}input250000x100.inp" "${TEST_DIR}input500000x100.inp" "${TEST_DIR}input1000000x100.inp")
+
+NODES_STRONG_MPI_OMP=(2 4)
+INPUT_STRONG_MPI_OMP=("${TEST_DIR}input1000000x100.inp")
+
+NODES_WEAK_MPI_OMP=(1 2 4 8 16)
+INPUT_NUM=(0 0 1 0 0 2 0 0 0 3 0 0 0 0 0 0 0 4)
+INPUT_WEAK_MPI_OMP=("${TEST_DIR}input31250x100.inp" "${TEST_DIR}input62500x100.inp" "${TEST_DIR}input125000x100.inp" "${TEST_DIR}input250000x100.inp" "${TEST_DIR}input500000x100.inp" "${TEST_DIR}input1000000x100.inp")
 # ---------------------------------------------------------

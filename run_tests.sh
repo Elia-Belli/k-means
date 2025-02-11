@@ -22,7 +22,7 @@ fi
 make all
 make compare
 
-rm -r ${TEST_RESULTS}input_*
+#rm -r ${TEST_RESULTS}input_*
 
 echo "CREATING TEST RESULTS FILES"
 for ((i = 0; i < INPUT_NUM; i++)); do

@@ -14,9 +14,9 @@ for ((i=0; i < TEST_RUN; i++));
 
     if [ "$RUN_MPI_OMP_TESTS" == true ]; then
         VERSION="mpi+omp"
-        echo "[${i}] Running ${VERSION} version on ${INPUT_WEAK[${WEAK_SCALING_THREADS[${NUM_MACHINES}]}]}"
+        echo "[${i}] Running ${VERSION} version on ${INPUT_WEAK_MPI_OMP[${NODES_WEAK_MPI_OMP[${NUM_MACHINES}]}]}"
 
-        OUTPUT=$(./bin/KMEANS_mpi+omp "${INPUT_WEAK[${WEAK_SCALING_THREADS[${NUM_MACHINES}]}]}"\
+        OUTPUT=$(./bin/KMEANS_mpi+omp "${INPUT_WEAK_MPI_OMP[${NODES_WEAK_MPI_OMP[${NUM_MACHINES}]}]}"\
          100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt")
 
         if [ $_CONDOR_PROCNO == 0 ]; then
