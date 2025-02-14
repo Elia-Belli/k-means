@@ -282,13 +282,14 @@ int main(int argc, char* argv[])
     //START CLOCK***************************************
     start = omp_get_wtime();
     //**************************************************
+    // Get the number of threads that will be spawned
     const char* RAW_OMP_NUM_THREADS = getenv("OMP_NUM_THREADS");
     const int OMP_NUM_THREADS = (RAW_OMP_NUM_THREADS != NULL) ? (atoi(RAW_OMP_NUM_THREADS)) : omp_get_max_threads();
 
-    int changes = 0;
-    int it = 1;
     int i, j, cluster;
+    int changes = 0;
     int anotherIteration = 0;
+    int it = 1;
     int auxCentroidsSize = K * samples;
     float_t dist, minDist = FLT_MAX, maxDist = FLT_MIN;
 
@@ -328,6 +329,7 @@ int main(int argc, char* argv[])
                 }
                 pointsPerClass[cluster - 1]++;
             }
+            // No need of implicit barrier, each thread will work on the classMap section that it has calculated.
 
             // 2. Compute the partial sum of all the coordinates of point within the same cluster
             # pragma omp for reduction(+:auxCentroids[:auxCentroidsSize])
@@ -348,6 +350,7 @@ int main(int argc, char* argv[])
                     auxCentroids[i * samples + j] /= pointsPerClass[i];
                 }
             }
+            // No need of implicit barrier, each thread will work on the auxCentroids section that it has calculated.
 
             // 3. Get the maximum movement of a centroid compared to its previous position
             # pragma omp for reduction(max:maxDist)
@@ -371,21 +374,16 @@ int main(int argc, char* argv[])
                 #endif
 
                 anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
-
-                if (anotherIteration)
-                {
-                    it++;
-                    maxDist = FLT_MIN;
-                    changes = 0;
-                    memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
-                    memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
-                }
+                maxDist = FLT_MIN;
+                changes = 0;
+                memcpy(centroids, auxCentroids, (auxCentroidsSize * sizeof(float)));
+                memset(auxCentroids, 0.0, auxCentroidsSize * sizeof(float));
+                it++;
             }
         }
         while (anotherIteration);
     }
-    // Output and termination conditions
-
+    it--;
     //END CLOCK*****************************************
     end = omp_get_wtime();
     #ifdef DEBUG

@@ -318,18 +318,21 @@ int main(int argc, char* argv[])
     #endif
 
     float_t dist, minDist = FLT_MAX, maxDist = FLT_MIN;
-    int it = 1, changes = 0, anotherIteration = 0;
+    int it = 1, changes = 0, anotherIteration = 0, auxCentroidsSize = K * samples;
     int cluster, j;
     int* classMap = NULL;
 
-    //pointPerClass: number of points classified in each class
-    //auxCentroids: mean of the points in each class
+    // pointPerClass: number of points classified in each class
+    // auxCentroids: mean of the points in each class
+    // centroidsPerProcess: number of centroids assigned to each process
+    // centroidsDisplacement: starting centroid position for each process
+    // localAuxCentroids: local version of auxCentroid for each process
     int* centroidsPerProcess = calloc(size, sizeof(int));
     int* centroidsDispls = calloc(size, sizeof(int));
     int* pointsPerClass = calloc(K, sizeof(int));
-    float* auxCentroids = calloc(K * samples, sizeof(float));
-    float* auxCentroids2 = calloc(K * samples, sizeof(float));
-    if (pointsPerClass == NULL || auxCentroids == NULL || auxCentroids2 == NULL || centroidsPerProcess == NULL ||
+    float* auxCentroids = calloc(auxCentroidsSize, sizeof(float));
+    float* localAuxCentroids = calloc(auxCentroidsSize, sizeof(float));
+    if (pointsPerClass == NULL || auxCentroids == NULL || localAuxCentroids == NULL || centroidsPerProcess == NULL ||
         centroidsDispls == NULL)
     {
         fprintf(stderr, "Memory allocation error.\n");
@@ -337,16 +340,16 @@ int main(int argc, char* argv[])
     }
 
     MPI_Request reqs[3], req, workSplit[2];
+    int startCentroidPerSamples, centroidOffsetPerSamples;
     int *linesPerProcess = NULL, *displacementPerProcess = NULL;
     int workPerProcess = (lines / size), workReminder = (lines % size);
     int processCentroids = (K / size), centroidsReminder = (K % size);
-    int startCentroidPerSamples, centroidOffsetPerSamples;
     int startLine = rank * workPerProcess;
     int lineOffset = workPerProcess;
     int startCentroid = rank * processCentroids;
     int centroidOffset = processCentroids;
 
-    // Data to split lines between ranks
+    // Each process calculates its work split for lines
     if (rank < workReminder)
     {
         startLine += rank;
@@ -357,7 +360,7 @@ int main(int argc, char* argv[])
         startLine += workReminder;
     }
 
-    // Data to split centroids between ranks
+    // Each process calculates its work split for centroids
     if (rank < centroidsReminder)
     {
         startCentroid += rank;
@@ -380,6 +383,7 @@ int main(int argc, char* argv[])
 
     if (rank == 0)
     {
+        // Only the root process needs to know how lines are divided across the processes
         linesPerProcess = calloc(size, sizeof(int));
         displacementPerProcess = calloc(size, sizeof(int));
         classMap = calloc(lines, sizeof(int));
@@ -442,11 +446,11 @@ int main(int argc, char* argv[])
             cluster = localClassMap[i] - 1;
             for (j = 0; j < samples; j++)
             {
-                auxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
+                localAuxCentroids[cluster * samples + j] += data[(startLine + i) * samples + j];
             }
         }
 
-        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, auxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
+        MPI_CHECK_RETURN(MPI_Allreduce(MPI_IN_PLACE, localAuxCentroids, K * samples, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD));
         MPI_CHECK_RETURN(MPI_Wait(&req, MPI_STATUS_IGNORE));
 
         for (i = 0; i < centroidOffset; i++)
@@ -454,15 +458,15 @@ int main(int argc, char* argv[])
             cluster = startCentroid + i;
             for (j = 0; j < samples; j++)
             {
-                auxCentroids[cluster * samples + j] /= pointsPerClass[cluster];
+                localAuxCentroids[cluster * samples + j] /= pointsPerClass[cluster];
             }
         }
 
         // no need for barrier, the rank will work only on the auxCentroids he computed
         // so they will necessarily be ready
         MPI_CHECK_RETURN(MPI_Iallgatherv(
-            auxCentroids + startCentroid * samples, centroidOffsetPerSamples, MPI_FLOAT,
-            auxCentroids2, centroidsPerProcess, centroidsDispls,
+            localAuxCentroids + startCentroid * samples, centroidOffsetPerSamples, MPI_FLOAT,
+            auxCentroids, centroidsPerProcess, centroidsDispls,
             MPI_FLOAT, MPI_COMM_WORLD, &reqs[2]));
 
         // 3. Compute the maximum movement of a centroid compared to its previous position
@@ -470,7 +474,7 @@ int main(int argc, char* argv[])
         {
             dist = euclideanDistance(
                 &centroids[(startCentroid + i) * samples],
-                &auxCentroids[(startCentroid + i) * samples],
+                &localAuxCentroids[(startCentroid + i) * samples],
                 samples
             );
 
@@ -483,7 +487,7 @@ int main(int argc, char* argv[])
         MPI_CHECK_RETURN(MPI_Iallreduce(MPI_IN_PLACE, &maxDist, 1, MPI_FLOAT, MPI_MAX, MPI_COMM_WORLD, &reqs[1]));
 
         memset(pointsPerClass, 0, K * sizeof(int));
-        memset(auxCentroids, 0.0, K * samples * sizeof(float));
+        memset(localAuxCentroids, 0.0, K * samples * sizeof(float));
 
         MPI_CHECK_RETURN(MPI_Waitall(2, reqs, MPI_STATUS_IGNORE));
 
@@ -498,13 +502,13 @@ int main(int argc, char* argv[])
         anotherIteration = (changes > minChanges) && (it < maxIterations) && (maxDist > maxThreshold);
         changes = 0;
         maxDist = FLT_MIN;
-
-        if (anotherIteration) it++;
+        it++;
 
         MPI_CHECK_RETURN(MPI_Wait(&reqs[2], MPI_STATUS_IGNORE));
-        memcpy(centroids, auxCentroids2, K * samples * sizeof(float));
+        memcpy(centroids, auxCentroids, K * samples * sizeof(float));
     }
     while (anotherIteration);
+    it--;
 
     // 5. Gather to the root process all the information that will be written in the output file
     MPI_CHECK_RETURN(MPI_Waitall(2, workSplit, MPI_STATUS_IGNORE));
@@ -567,7 +571,7 @@ int main(int argc, char* argv[])
     free(centroidsDispls);
     free(pointsPerClass);
     free(auxCentroids);
-    free(auxCentroids2);
+    free(localAuxCentroids);
     free(localClassMap);
     free(data);
     free(centroidPos);
