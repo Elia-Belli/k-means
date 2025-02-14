@@ -13,7 +13,7 @@ for ((i=0; i < TEST_RUN; i++));
     if [ $RUN_MPI_OMP_TESTS == true ]; then
       VERSION="mpi+omp"
       echo "[${i}] Running ${VERSION} version"
-      OUTPUT=$(./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT[STRONG_SCALING_INPUT]} ${K[STRONG_SCALING_INPUT]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
+      OUTPUT=$(./openmpiscript.sh ./bin/KMEANS_mpi+omp ${INPUT_STRONG_MPI_OMP} 100 ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
 
       if [ $_CONDOR_PROCNO == 0 ]; then
         printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}input_strong_${VERSION}_${NUM_MACHINES}.csv"
