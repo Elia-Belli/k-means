@@ -25,7 +25,7 @@ do
     do
       OUTPUT=$(\
         mpirun --bind-to none --np "${THREADS_TO_RUN[k]}" --oversubscribe \
-        ./bin/KMEANS_mpi ${INPUT[j]} ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt \
+        ./bin/KMEANS_mpi "${INPUT[j]}" ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} "${OUT_DIR}KMEANS_${VERSION}_${j}.txt" \
       )
       printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_${INPUT[j]}_strong.csv"
     done
@@ -39,7 +39,7 @@ do
     do
       export OMP_NUM_THREADS=${THREADS_TO_RUN[k]}
       OUTPUT=$(\
-        ./bin/KMEANS_omp ${INPUT[j]} ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt \
+        ./bin/KMEANS_omp "${INPUT[j]}" ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} "${OUT_DIR}KMEANS_${VERSION}_${j}.txt" \
       )
       printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_${INPUT[j]}_strong.csv"
     done
