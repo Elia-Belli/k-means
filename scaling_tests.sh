@@ -1,193 +1,48 @@
 #!/usr/bin/env bash
-source config.sh
+# ---------------------------------------------------------
+# Change only this section of the file to modify test runs
+TEST_DIR="./test_files/"
+OUT_DIR="./bin/out/"
+TEST_RESULTS="./tests/"
 
-rm -r "${TEST_RESULTS}seq_strong.csv" "${TEST_RESULTS}mpi_strong.csv" "${TEST_RESULTS}omp_strong.csv"
-rm -r "${TEST_RESULTS}seq_weak.csv" "${TEST_RESULTS}mpi_weak.csv" "${TEST_RESULTS}omp_weak.csv"
-rm -r "${TEST_RESULTS}cuda.csv"
-printf "time(s)\n" >> "${TEST_RESULTS}seq_strong.csv"
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28\n" >> "${TEST_RESULTS}seq_weak.csv"
+THREADS_TO_RUN=(1 2 4 8 12 16 20 24 28 32)
 
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}mpi_strong.csv"
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}omp_strong.csv"
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28\n" >> "${TEST_RESULTS}mpi_weak.csv"
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28\n" >> "${TEST_RESULTS}omp_weak.csv"
+TEST_RUN=30
+INPUT_NUM=9
+INPUT=("${TEST_DIR}input3125x100.inp" "${TEST_DIR}input6250x100.inp" "${TEST_DIR}input12500x100.inp" "${TEST_DIR}input25000x100.inp" "${TEST_DIR}input37500x100.inp" "${TEST_DIR}input50000x100.inp" "${TEST_DIR}input62500x100.inp" "${TEST_DIR}input75000x100.inp" "${TEST_DIR}input87500x100.inp")
+K=100
+ITER=150
+MIN_CHANGES=0.01
+MAX_DIST=0.01
+# ---------------------------------------------------------
 
-printf "p1,p2,p4,p8,p12,p16,p20,p24,p28,p32\n" >> "${TEST_RESULTS}cuda.csv"
-
-ulimit -s unlimited
-export OMP_STACKSIZE=512M
-
-echo "--------------------------"
-echo "STRONG SCALING RUNS STARTING"
-
-for ((i=0; i < TEST_RUN; i++));
+for ((i = 0; i < TEST_RUN; i++));
+do
+  VERSION="mpi"
+  for ((j = 0; j < INPUT_NUM; j++));
   do
-    ITERATIONS=${#STRONG_SCALING_THREADS[@]}
-
-    if [ "${RUN_SEQUENTIAL_TESTS}" == true ]; then
-      VERSION="seq"
-      echo "[${i}] Running ${VERSION} version"
-
+    for ((k = 0; k < INPUT_NUM; k++));
+    do
       OUTPUT=$(\
-        ./bin/KMEANS_seq "${INPUT[STRONG_SCALING_INPUT]}" "${K[STRONG_SCALING_INPUT]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${STRONG_SCALING_INPUT}.txt"\
+        mpirun --bind-to none --np "${THREADS_TO_RUN[k]}" --oversubscribe \
+        ./bin/KMEANS_mpi ${INPUT[j]} ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt \
       )
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
+      printf "%s," "${OUTPUT}" >> "${VERSION}_${INPUT[j]}_strong.csv"
+    done
+    printf "\n" >> "${VERSION}_${INPUT[j]}_strong.csv"
+  done
 
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
-    if [ "$RUN_MPI_TESTS" == true ]; then
-      VERSION="mpi"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < ITERATIONS; j++));
-      do
-        echo "[${VERSION}] Running test with ${STRONG_SCALING_THREADS[j]} processes"
-
-        OUTPUT=$(\
-          mpirun --np "${STRONG_SCALING_THREADS[j]}" --oversubscribe\
-          ./bin/KMEANS_mpi "${INPUT[STRONG_SCALING_INPUT]}" "${K[STRONG_SCALING_INPUT]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${STRONG_SCALING_INPUT}.txt"\
-        )
-
-        if [ $j != $((ITERATIONS - 1)) ]; then
-          printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
-        fi
-      done
-
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
-
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
-    if [ "$RUN_OMP_TESTS" == true ]; then
-      VERSION="omp"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < ITERATIONS; j++));
-      do
-        echo "[${VERSION}] Running test with ${STRONG_SCALING_THREADS[j]} processes"
-        export OMP_NUM_THREADS=${STRONG_SCALING_THREADS[j]}
-
-        OUTPUT=$(\
-          ./bin/KMEANS_omp "${INPUT[STRONG_SCALING_INPUT]}" "${K[STRONG_SCALING_INPUT]}" "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${STRONG_SCALING_INPUT}.txt"\
-        )
-
-        if [ $j != $((ITERATIONS - 1)) ]; then
-          printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
-        fi
-      done
-
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_strong.csv"
-
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-done
-
-echo "--------------------------"
-echo "WEAK SCALING RUNS STARTING"
-
-for ((i=0; i < TEST_RUN; i++));
+  VERSION="omp"
+  for ((j = 0; j < INPUT_NUM; j++));
   do
-    ITERATIONS=${#INPUT_WEAK[@]}
-
-    if [ "${RUN_SEQUENTIAL_TESTS}" == true ]; then
-      VERSION="seq"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < ITERATIONS; j++));
-      do
-        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} processes"
-
-        OUTPUT=$(\
-          ./bin/KMEANS_seq "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
-        )
-
-        if [ $j != $((ITERATIONS - 1)) ]; then
-          printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-        fi
-      done
-
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
-    if [ "$RUN_MPI_TESTS" == true ]; then
-      VERSION="mpi"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < ITERATIONS; j++));
-      do
-        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} with ${WEAK_SCALING_THREADS[j]}} processes"
-
-        OUTPUT=$(\
-          mpirun --np "${WEAK_SCALING_THREADS[j]}" --oversubscribe\
-          ./bin/KMEANS_mpi "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
-        )
-
-        if [ $j != $((ITERATIONS - 1)) ]; then
-          printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-        fi
-      done
-
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
-    if [ "$RUN_OMP_TESTS" == true ]; then
-      VERSION="omp"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < ITERATIONS; j++));
-      do
-        echo "[${VERSION}] Running test on ${INPUT_WEAK[j]} with ${WEAK_SCALING_THREADS[j]}} processes"
-        export OMP_NUM_THREADS=${WEAK_SCALING_THREADS[j]}
-
-        OUTPUT=$(\
-          ./bin/KMEANS_omp "${INPUT_WEAK[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
-        )
-
-        if [ $j != $((ITERATIONS - 1)) ]; then
-          printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-        fi
-      done
-
-      printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}_weak.csv"
-
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
+    for ((k = 0; k < INPUT_NUM; k++));
+    do
+      export OMP_NUM_THREADS=${THREADS_TO_RUN[k]}
+      OUTPUT=$(\
+        ./bin/KMEANS_omp ${INPUT[j]} ${K} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt \
+      )
+      printf "%s," "${OUTPUT}" >> "${VERSION}_${INPUT[j]}_strong.csv"
+    done
+    printf "\n" >> "${VERSION}_${INPUT[j]}_strong.csv"
+  done
 done
-
-echo "--------------------------"
-echo "CUDA RUNS STARTING"
-
-for ((i=0; i < TEST_RUN; i++));
-  do
-    ITERATIONS=${#INPUT_CUDA[@]}
-
-    if [ "$RUN_CUDA_TESTS" == true ]; then
-        VERSION="cuda"
-        echo "[${i}] Running ${VERSION} version"
-
-        for ((j=0; j < ITERATIONS; j++));
-            do
-                echo "[${VERSION}] Running test on ${INPUT_CUDA[j]}"
-
-                OUTPUT=$(\
-                ./bin/KMEANS_cuda "${INPUT_CUDA[j]}" 100 "$ITER" "$MIN_CHANGES" "$MAX_DIST" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt"\
-                )
-
-                if [ $j != $((ITERATIONS - 1)) ]; then
-                printf "%s," "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}.csv"
-                fi
-            done
-
-        printf "%s\n" "${OUTPUT}" >> "${TEST_RESULTS}${VERSION}.csv"
-
-        echo "[${i}] ${VERSION} runs completed"
-    fi
-done
-
-echo "--------------------------"
