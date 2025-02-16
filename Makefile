@@ -25,7 +25,6 @@ OBJS = 	KMEANS_seq\
  		KMEANS_mpi\
  		KMEANS_omp\
  		KMEANS_mpi+omp\
- 		KMEANS_omp_simd\
  		KMEANS_cuda\
 
 # Rules. By default show help
@@ -57,9 +56,6 @@ KMEANS_mpi: ./source/KMEANS_mpi.c
 
 # omp
 KMEANS_omp: ./source/KMEANS_omp.c
-	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
-
-KMEANS_omp_simd: ./source/KMEANS_omp_simd.c
 	$(CC) $(FLAGS) $(DEBUG) $(OMPFLAG) $< $(LIBS) -o ./bin/$@
 
 # cuda

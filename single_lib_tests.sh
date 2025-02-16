@@ -55,21 +55,6 @@ for ((i=0; i < TEST_RUN; i++));
       echo "[${i}] ${VERSION} runs completed"
     fi
 
-    if [ $RUN_OMP_SIMD_TESTS == true ]; then
-      VERSION="omp_simd"
-      echo "[${i}] Running ${VERSION} version"
-
-      for ((j=0; j < INPUT_NUM; j++));
-      do
-        echo "[${VERSION}] Running test ${j}"
-        OUTPUT=$(./bin/KMEANS_omp ${INPUT[j]} ${K[j]} ${ITER} ${MIN_CHANGES} ${MAX_DIST} ${OUT_DIR}KMEANS_${VERSION}_${j}.txt)
-        COMPARISON=$(./bin/compare "${OUT_DIR}KMEANS_seq_${j}.txt" "${OUT_DIR}KMEANS_${VERSION}_${j}.txt")
-
-        printf "%s,%s,%s\n" "${VERSION}" "${OUTPUT}" "${COMPARISON}" >> "${TEST_RESULTS}input_${j}.csv"
-      done
-      echo "[${i}] ${VERSION} runs completed"
-    fi
-
     if [ $RUN_CUDA_TESTS == true ]; then
       VERSION="cuda"
       echo "[${i}] Running ${VERSION} version"
