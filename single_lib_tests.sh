@@ -4,10 +4,10 @@ source config.sh
 export OMP_NUM_THREADS=$OMP_NUM_THREADS
 ulimit -s unlimited
 export OMP_STACKSIZE=512M
+INPUT_NUM=${#INPUT[@]}
 
 for ((i=0; i < TEST_RUN; i++));
   do
-
     if [ $RUN_SEQUENTIAL_TESTS == true ]; then
       VERSION="seq"
       echo "[${i}] Running ${VERSION} version"
