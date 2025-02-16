@@ -22,20 +22,6 @@ fi
 make all
 make compare
 
-#rm -r ${TEST_RESULTS}input_*
-
-echo "CREATING TEST RESULTS FILES"
-for ((i = 0; i < INPUT_NUM; i++)); do
-  touch "${TEST_RESULTS}input_${i}.csv"
-  printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >>"${TEST_RESULTS}input_${i}.txt"
-
-  if [ "$RUN_LOCAL" != true ]; then
-    touch "${TEST_RESULTS}input_${i}_parallel.csv"
-    printf "${INPUT[i]},${K[i]},${ITER},${MIN_CHANGES},${MAX_DIST}\n" >>"${TEST_RESULTS}input_${i}_parallel.txt"
-  fi
-done
-echo "ALL RESULTS FILES ARE CREATED"
-
 if [ "$RUN_SEQ" == true ]; then
   echo "RUNNING SEQUENTIAL PROGRAM IN ORDER TO GATHER TESTS OUTCOMES"
   for ((i = 0; i < INPUT_NUM; i++)); do
