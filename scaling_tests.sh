@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+INPUT_NUM=${#INPUT[@]}
 
 for ((i = 0; i < TEST_RUN; i++));
 do

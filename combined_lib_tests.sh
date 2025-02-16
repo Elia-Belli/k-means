@@ -6,6 +6,7 @@ export RUN_WITH_OPENMP=true
 chmod +xwr openmpiscript.sh bin/compare
 ulimit -s unlimited
 export OMP_STACKSIZE=512M
+INPUT_NUM=${#INPUT[@]}
 
 for ((i=0; i < TEST_RUN; i++));
   do
