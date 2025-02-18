@@ -1,7 +1,0 @@
-
-[BIG]
-./bin/KMEANS "./test_files/input100D2.inp" 22347 10000 0.1 0.1 "./bin/out/KMEANS_big_{user}.txt"
-
-[MEDIUM]
-./bin/KMEANS "./test_files/input100D2.inp" 10000 10000 0.1 0.1 "./bin/out/KMEANS_medium_{user}.txt"
-
