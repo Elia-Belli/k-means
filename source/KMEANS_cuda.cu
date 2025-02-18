@@ -549,7 +549,7 @@ int main(int argc, char* argv[])
     #endif
 
 
-    float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist;
+    float *d_data, *d_centroids, *d_auxCentroids, *d_maxDist, *temp;
     int *d_classMap, *d_changes, *d_pointPerClass;
     int anotherIteration = 1;
 
@@ -605,7 +605,9 @@ int main(int argc, char* argv[])
 
         if(anotherIteration){
             // Update Centroids for the next iteration
-            CHECK_CUDA_CALL(cudaMemcpy(d_centroids, d_auxCentroids, K*samples*sizeof(float), cudaMemcpyDeviceToDevice));    
+            temp = d_centroids;
+            d_centroids = d_auxCentroids;
+            d_auxCentroids = temp;
             it++;
         }
         
