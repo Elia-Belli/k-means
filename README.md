@@ -1,4 +1,4 @@
-# K-means Parallelization Project
+# Parallel K-means
 In this repository you will find the project for the **Multicore Programming** course @ Sapienza University of Rome.
 
 Our job was to parallelize the given k-means algorithm and provide 4 implementations using the following technologies:
